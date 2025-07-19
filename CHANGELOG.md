@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Still setting up this repository
+## [0.0.1-alpha] - 2025-07-19
 
-[Unreleased]: https://github.com/datacute/IncrementalGeneratorExtensions
+### Added
+
+- Initial release of the IncrementalGeneratorExtensions NuGet package.
+- Provides source files to add additional functionality for incremental source generators in .NET.
+
+---
+
+[Unreleased]: https://github.com/datacute/IncrementalGeneratorExtensions/compare/release/0.0.1-alpha...develop
+[0.0.1-alpha]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/0.0.1-alpha
