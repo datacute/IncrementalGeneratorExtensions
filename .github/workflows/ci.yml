@@ -39,7 +39,7 @@ jobs:
       run: dotnet restore $SOLUTION
 
     - name: Build
-      run: dotnet build $SOLUTION --configuration $BUILD_CONFIG --no-restore
+      run: dotnet build $SOLUTION --configuration $BUILD_CONFIG --no-restore -p:GeneratePackageOnBuild=false
 
     - name: Run tests
       run: dotnet test --configuration $BUILD_CONFIG --no-restore --no-build --verbosity normal
