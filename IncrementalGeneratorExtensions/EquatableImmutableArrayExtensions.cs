@@ -1,0 +1,149 @@
+﻿#if !DATACUTE_EXCLUDE_EQUATABLEIMMUTABLEARRAYEXTENSIONS
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Threading;
+using Microsoft.CodeAnalysis;
+
+namespace Datacute.IncrementalGeneratorExtensions
+{
+    /// <summary>
+    /// Extension methods creating <see cref="EquatableImmutableArray{T}"/> instances
+    /// from or instead of <see cref="ImmutableArray{T}"/> outputs, which are
+    /// particularly useful in Roslyn incremental source generator pipelines to
+    /// ensure efficient execution due to the value-based equality.
+    /// </summary>
+    public static class EquatableImmutableArrayExtensions
+    {
+        /// <summary>
+        /// Converts an <see cref="ImmutableArray{TSource}"/> to an <see cref="EquatableImmutableArray{T}"/> using a selector function.
+        /// </summary>
+        /// <param name="values">The source <see cref="ImmutableArray{TSource}"/>.</param>
+        /// <param name="selector">A function to transform each element from <typeparamref name="TSource"/> to <typeparamref name="T"/>.</param>
+        /// <param name="ct">A cancellation token.</param>
+        /// <typeparam name="TSource">The type of the elements in the source array.</typeparam>
+        /// <typeparam name="T">The type of the elements in the resulting <see cref="EquatableImmutableArray{T}"/>.</typeparam>
+        /// <returns>An <see cref="EquatableImmutableArray{T}"/> containing the transformed elements.</returns>
+        /// <example>
+        /// Capture attribute context's type parameters to a TypeParameters field in a struct:
+        /// <code>
+        /// // An ImmutableArray&lt;ITypeParameterSymbol&gt;
+        /// var types = namedTypeTargetSymbol.TypeParameters;
+        /// TypeParameters = types.Length &gt; 0
+        ///     ? types.ToEquatableImmutableArray(tp =&gt; tp.Name)
+        ///     : EquatableImmutableArray&lt;string&gt;.Empty;
+        /// </code>
+        /// </example>
+        public static EquatableImmutableArray<T> ToEquatableImmutableArray<TSource,T>(this ImmutableArray<TSource> values, Func<TSource,T> selector, CancellationToken ct = default) where T : IEquatable<T>
+        {
+            var builder = ImmutableArray.CreateBuilder<T>(values.Length);
+            foreach (TSource value in values)
+            {
+                builder.Add(selector(value));
+            }
+            return EquatableImmutableArray<T>.Create(builder.MoveToImmutable(), ct);
+        }
+
+        /// <summary>
+        /// Converts an <see cref="EquatableImmutableArray{TSource}"/> to a new <see cref="EquatableImmutableArray{T}"/> using a selector function.
+        /// </summary>
+        /// <param name="values">The source <see cref="EquatableImmutableArray{TSource}"/>.</param>
+        /// <param name="selector">A function to transform each element from <typeparamref name="TSource"/> to <typeparamref name="T"/>.</param>
+        /// <typeparam name="TSource">The type of the elements in the source array.</typeparam>
+        /// <typeparam name="T">The type of the elements in the resulting <see cref="EquatableImmutableArray{T}"/>.</typeparam>
+        /// <param name="ct">A cancellation token.</param>
+        /// <returns>An <see cref="EquatableImmutableArray{T}"/> containing the transformed elements.</returns>
+        public static EquatableImmutableArray<T> ToEquatableImmutableArray<TSource,T>(this EquatableImmutableArray<TSource> values, Func<TSource,T> selector, CancellationToken ct = default) where TSource : IEquatable<TSource> where T : IEquatable<T>
+        {
+            var builder = ImmutableArray.CreateBuilder<T>(values.Count);
+            foreach (TSource value in values)
+            {
+                builder.Add(selector(value));
+            }
+            return EquatableImmutableArray<T>.Create(builder.MoveToImmutable(), ct);
+        }
+
+        /// <summary>
+        /// Converts an <see cref="IEnumerable{T}"/> to an <see cref="EquatableImmutableArray{T}"/>.
+        /// </summary>
+        /// <param name="values">The source <see cref="IEnumerable{T}"/>.</param>
+        /// <param name="ct">A cancellation token.</param>
+        /// <typeparam name="T">The type of the elements in the source and result collections.</typeparam>
+        /// <returns>An <see cref="EquatableImmutableArray{T}"/> containing the elements from the source collection.</returns>
+        public static EquatableImmutableArray<T> ToEquatableImmutableArray<T>(this IEnumerable<T> values, CancellationToken ct = default) where T : IEquatable<T> => EquatableImmutableArray<T>.Create(values.ToImmutableArray(), ct);
+
+        /// <summary>
+        /// Converts an <see cref="ImmutableArray{T}"/> to an <see cref="EquatableImmutableArray{T}"/>.
+        /// </summary>
+        /// <param name="values">The source <see cref="ImmutableArray{T}"/>.</param>
+        /// <param name="ct">A cancellation token.</param>
+        /// <typeparam name="T">The type of the elements in the source and result arrays.</typeparam>
+        /// <returns>An <see cref="EquatableImmutableArray{T}"/> containing the elements from the source array.</returns>
+        /// <example>
+        /// Using ImmutableArray.CreateBuilder:
+        /// <code>
+        /// var parentClassImmutableArrayBuilder =
+        ///     ImmutableArray.CreateBuilder&lt;ParentClassInfo&gt;(count);
+        /// foreach ...
+        ///     parentClassImmutableArrayBuilder.Add(
+        ///         new ParentClassInfo(containingType.Name, typeParameterNames));
+        /// // Convert to EquatableImmutableArray:
+        /// ParentClasses = parentClassImmutableArrayBuilder
+        ///     .MoveToImmutable()
+        ///     .ToEquatableImmutableArray();
+        /// </code>
+        /// </example>
+        public static EquatableImmutableArray<T> ToEquatableImmutableArray<T>(this ImmutableArray<T> values, CancellationToken ct = default) where T : IEquatable<T> => EquatableImmutableArray<T>.Create(values, ct);
+
+        /// <summary>
+        /// Combines two <see cref="IncrementalValuesProvider{T}"/> to produce an <see cref="IncrementalValuesProvider{T}"/>
+        /// of tuples where each has a value from the first provider, and all values from the second value as an <see cref="EquatableImmutableArray{T}"/>.
+        /// </summary>
+        /// <param name="provider1">The first incremental values provider.</param>
+        /// <param name="provider2">The second incremental values provider.</param>
+        /// <typeparam name="TLeft">The type of the elements from the first provider.</typeparam>
+        /// <typeparam name="TRight">The type of the elements from the second provider, must implement <see cref="IEquatable{T}"/>.</typeparam>
+        /// <returns>An <see cref="IncrementalValuesProvider{T}"/> producing tuples with items from the first provider and collections from the second provider as <see cref="EquatableImmutableArray{T}"/>.</returns>
+        /// <remarks>
+        /// The implementation calls Collect() on the second provider, which returns an ImmutableArray.
+        /// This is then converted to an EquatableImmutableArray.
+        /// Combine() is then called on the first provider with the EquatableImmutableArray as the argument.
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// var matchedResourceAndAttribute =
+        ///     context.AdditionalTextsProvider
+        ///         .Select(SelectFileInfo)
+        ///         .Trace(TrackingNames.FileInfoSelected)
+        ///         .CombineEquatable(attributeGlobs)
+        ///         .Trace(TrackingNames.FileInfoAndGlobsCombined)
+        ///         // rest of this pipeline
+        /// </code>
+        /// </example>
+        public static IncrementalValuesProvider<(TLeft Left, EquatableImmutableArray<TRight> Right)> CombineEquatable<TLeft, TRight>(
+            this IncrementalValuesProvider<TLeft> provider1, 
+            IncrementalValuesProvider<TRight> provider2) 
+            where TRight : IEquatable<TRight>
+            => provider1.Combine(provider2.Collect().Select(EquatableImmutableArray<TRight>.Create));
+            
+        /// <summary>
+        /// Combines an <see cref="IncrementalValueProvider{TLeft}"/> with an <see cref="IncrementalValuesProvider{TRight}"/> to produce a provider of tuples with the second value as an <see cref="EquatableImmutableArray{TRight}"/>.
+        /// </summary>
+        /// <param name="provider1">The first incremental value provider (produces a single value).</param>
+        /// <param name="provider2">The second incremental values provider (produces multiple values).</param>
+        /// <typeparam name="TLeft">The type of the element from the first provider.</typeparam>
+        /// <typeparam name="TRight">The type of the elements from the second provider, must implement <see cref="IEquatable{T}"/>.</typeparam>
+        /// <returns>An <see cref="IncrementalValueProvider{T}"/> producing a tuple with an item from the first provider and a collection from the second provider as <see cref="EquatableImmutableArray{T}"/>.</returns>
+        /// <remarks>
+        /// The implementation calls Collect() on the second provider, which returns an ImmutableArray.
+        /// This is then converted to an EquatableImmutableArray.
+        /// Combine() is then called on the first provider with the EquatableImmutableArray as the argument.
+        /// </remarks>
+        public static IncrementalValueProvider<(TLeft Left, EquatableImmutableArray<TRight> Right)> CombineEquatable<TLeft, TRight>(
+            this IncrementalValueProvider<TLeft> provider1, // Note: value/values
+            IncrementalValuesProvider<TRight> provider2) 
+            where TRight : IEquatable<TRight>
+            => provider1.Combine(provider2.Collect().Select(EquatableImmutableArray<TRight>.Create));
+    }
+}
+#endif

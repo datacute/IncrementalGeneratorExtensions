@@ -1,0 +1,11 @@
+<Project>
+	<PropertyGroup>
+		<VersionPrefix>0.0.1</VersionPrefix>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(BuildingInsideVisualStudio)' != 'true'">
+		<VersionSuffix>dev-$([System.DateTime]::UtcNow.ToString("yyyyMMdd-HHmmss"))</VersionSuffix>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(BuildingInsideVisualStudio)' == 'true'">
+		<VersionSuffix>dev</VersionSuffix>
+	</PropertyGroup>
+</Project>
