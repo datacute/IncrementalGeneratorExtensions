@@ -16,7 +16,7 @@
 
 	<PropertyGroup>
 		<PackageId>Datacute.IncrementalGeneratorExtensions</PackageId>
-		<Title>Title: Datacute Incremental Generator Extensions</Title>
+		<Title>Datacute Incremental Generator Extensions</Title>
 		<Description>Extension methods and helper classes for incremental source generator projects.</Description>
 		<PackageTags>SourceGenerator source compiletime</PackageTags>
 		<PackageReadmeFile>src/Datacute.IncrementalGeneratorExtensions/README.md</PackageReadmeFile>
@@ -34,6 +34,7 @@
 		<Content Include="*.cs" Pack="true" PackagePath="src/Datacute.IncrementalGeneratorExtensions/" buildAction="None" copyToOutput="false" />
 		<None Include="*.md" Pack="true" PackagePath="src/Datacute.IncrementalGeneratorExtensions/" />
 		<None Include="Datacute.IncrementalGeneratorExtensions.props" Pack="true" PackagePath="build/Datacute.IncrementalGeneratorExtensions.props" />
+		<None Include="../PACKAGE_README.md" Pack="true" PackagePath="/" Visible="false" />
 	</ItemGroup>
 
 </Project>
