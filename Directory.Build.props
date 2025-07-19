@@ -13,6 +13,6 @@
 
 	<PropertyGroup>
 		<NoPackageAnalysis>true</NoPackageAnalysis>
-		<PackageOutputPath>$(MSBuildThisFileDirectory)\artifacts</PackageOutputPath>
+		<PackageOutputPath>$(MSBuildThisFileDirectory)artifacts</PackageOutputPath>
 	</PropertyGroup>
 </Project>

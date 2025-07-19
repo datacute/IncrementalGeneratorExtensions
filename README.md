@@ -39,10 +39,10 @@ to help with the development of incremental source generators in .NET.
   - Adds support for Microsoft's `EmbeddedAttribute` when running in older
     SDK & Roslyn versions. This can help with the behaviour of marker attributes.
 - [EquatableImmutableArray](IncrementalGeneratorExtensions/EquatableImmutableArray%20README.md)
-  - Provides an `EquatableImmutableArray<T>` type which enable value-based
+  - Provides an `EquatableImmutableArray<T>` type which enables value-based
     equality comparison of array contents, rather than the reference equality
     of the array instance itself, which is what `ImmutableArray<T>` uses.
-  - Incremental source generators produce `ImmutableArray<T>` outputs within their
+  - Incremental source generators produce new `ImmutableArray<T>` outputs within their
     pipelines, and by converting these to `EquatableImmutableArray<T>` instances,
     the pipeline stages can be correctly identified as having no changes in their
     output.
