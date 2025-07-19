@@ -19,7 +19,7 @@
 		<Title>Datacute Incremental Generator Extensions</Title>
 		<Description>Extension methods and helper classes for incremental source generator projects.</Description>
 		<PackageTags>SourceGenerator source compiletime</PackageTags>
-		<PackageReadmeFile>src/Datacute.IncrementalGeneratorExtensions/README.md</PackageReadmeFile>
+		<PackageReadmeFile>PACKAGE_README.md</PackageReadmeFile>
 		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<RepositoryUrl>https://github.com/datacute/IncrementalGeneratorExtensions</RepositoryUrl>
