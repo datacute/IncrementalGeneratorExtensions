@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.3-alpha] - 2025-07-19
+
+### Fixed
+
+- Referenced the NuGet specific README
+
 ## [0.0.2-alpha] - 2025-07-19
 
 ### Added
@@ -22,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/datacute/IncrementalGeneratorExtensions/compare/release/0.0.2-alpha...develop
-[0.0.1-alpha]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/0.0.2-alpha
+[Unreleased]: https://github.com/datacute/IncrementalGeneratorExtensions/compare/release/0.0.3-alpha...develop
+[0.0.3-alpha]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/0.0.3-alpha
+[0.0.2-alpha]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/0.0.2-alpha
 [0.0.1-alpha]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/0.0.1-alpha
