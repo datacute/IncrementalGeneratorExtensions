@@ -1,0 +1,14 @@
+<Project>
+    <PropertyGroup>
+        <Datacute_PackageSource_DirName>packageSource</Datacute_PackageSource_DirName>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="$(MSBuildThisFileDirectory)../src/Datacute.IncrementalGeneratorExtensions/**/*.cs">
+            <Link>$(Datacute_PackageSource_DirName)/Datacute/IncrementalGeneratorExtensions/%(RecursiveDir)%(Filename)%(Extension)</Link>
+        </Compile>
+        <None Include="$(MSBuildThisFileDirectory)../src/Datacute.IncrementalGeneratorExtensions/**/*.md">
+            <Link>$(Datacute_PackageSource_DirName)/Datacute/IncrementalGeneratorExtensions/%(RecursiveDir)%(Filename)%(Extension)</Link>
+        </None>
+    </ItemGroup>
+</Project>

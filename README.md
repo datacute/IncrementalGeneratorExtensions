@@ -1,4 +1,7 @@
 # Datacute Incremental Generator Extensions
+
+[![Build](https://github.com/datacute/IncrementalGeneratorExtensions/actions/workflows/ci.yml/badge.svg)](https://github.com/datacute/IncrementalGeneratorExtensions/actions/workflows/ci.yml)
+
 Source for the `Datacute.IncrementalGeneratorExtensions` NuGet package,
 which adds source files that provide additional functionality
 for incremental source generators in .NET.
@@ -43,7 +46,7 @@ to help with the development of incremental source generators in .NET.
     pipelines, and by converting these to `EquatableImmutableArray<T>` instances,
     the pipeline stages can be correctly identified as having no changes in their
     output.
-- [Lightweight Tracing](IncrementalGeneratorExtensions/LightweightTracing%20README.md)
+- [Lightweight Tracing](IncrementalGeneratorExtensions/LightweightTrace%20README.md)
   - Provides a lightweight tracing mechanism and provides an easy way to integrate
     with the incremental source generator's `WithTrackingName` diagnostic mechanism.
 
@@ -88,7 +91,7 @@ Each included source file is enclosed in an `#if` directive:
 ```csharp
 #if !DATACUTE_EXCLUDE_EMBEDDEDATTRIBUTE
 
-... rest of EmbeddedAttribute file ...
+// ... rest of EmbeddedAttribute file ...
 
 #endif
 ```
