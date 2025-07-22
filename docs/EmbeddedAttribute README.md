@@ -1,4 +1,4 @@
-<small>Back to Incremental Generator Extensions [README](README.md)</small>
+<small>Back to Incremental Generator Extensions [README](../README.md)</small>
 
 ---
 # EmbeddedAttribute.cs and EmbeddedAttributeExtensions.cs

@@ -1,0 +1,14 @@
+<Project>
+    <PropertyGroup>
+        <!-- Default to true if not defined by the user -->
+<!--        <Datacute_IncludeReadmeFile Condition="'$(Datacute_IncludeReadmeFile)' == ''">true</Datacute_IncludeReadmeFile>-->
+        <Visible>true</Visible>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!-- Conditionally include the README file -->
+        <None Include="$(MSBuildThisFileDirectory)/../content/Datacute.IncrementalGeneratorExtensions.README.md" Condition="'$(Datacute_IncludeReadmeFile)' == 'true'">
+            <Visible>true</Visible>
+        </None>
+    </ItemGroup>
+</Project>

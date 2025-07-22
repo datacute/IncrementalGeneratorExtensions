@@ -6,13 +6,8 @@
 		<Authors>Stephen Denne</Authors>
 		<Copyright>Copyright © Stephen Denne 2025</Copyright>
 		<Company>Datacute</Company>
-		<PackageProjectUrl>https://github.com/datacute/IncrementalGeneratorExtensions</PackageProjectUrl>
-		<PackageReleaseNotes>See full release notes and changelog: $(PackageProjectUrl)/blob/main/CHANGELOG.md</PackageReleaseNotes>
+		<RepositoryUrl>https://github.com/datacute/IncrementalGeneratorExtensions</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
 		<CheckEolTargetFramework>false</CheckEolTargetFramework>
-	</PropertyGroup>
-
-	<PropertyGroup>
-		<NoPackageAnalysis>true</NoPackageAnalysis>
-		<PackageOutputPath>$(MSBuildThisFileDirectory)artifacts</PackageOutputPath>
 	</PropertyGroup>
 </Project>

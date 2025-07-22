@@ -1,4 +1,4 @@
-<small>Back to Incremental Generator Extensions [README](README.md)</small>
+<small>Back to Incremental Generator Extensions [README](../README.md)</small>
 
 ---
 # LightweightTrace.cs and LightweightTraceExtensions.cs

@@ -1,40 +1,68 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
-	<PropertyGroup>
-		<AssemblyName>Datacute.IncrementalGeneratorExtensions</AssemblyName>
-		<RootNamespace>Datacute.IncrementalGeneratorExtensions</RootNamespace>
-		<ImplicitUsings>disable</ImplicitUsings>
-		<TargetFramework>netstandard2.0</TargetFramework>
-		<LangVersion>7.3</LangVersion>
-	</PropertyGroup>
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <IsPackable>true</IsPackable>
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
 
-	<PropertyGroup>
-		<IncludeBuildOutput>false</IncludeBuildOutput>
-		<DevelopmentDependency>true</DevelopmentDependency>
-		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-	</PropertyGroup>
+        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+        <IsRoslynComponent>true</IsRoslynComponent>
 
-	<PropertyGroup>
-		<PackageId>Datacute.IncrementalGeneratorExtensions</PackageId>
-		<Title>Datacute Incremental Generator Extensions</Title>
-		<Description>Extension methods and helper classes for incremental source generator projects.</Description>
-		<PackageTags>SourceGenerator source compiletime</PackageTags>
-		<PackageReadmeFile>PACKAGE_README.md</PackageReadmeFile>
-		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-		<PackageLicenseExpression>MIT</PackageLicenseExpression>
-		<RepositoryUrl>https://github.com/datacute/IncrementalGeneratorExtensions</RepositoryUrl>
-		<RepositoryType>git</RepositoryType>
-	</PropertyGroup>
+        <AssemblyName>Datacute.IncrementalGeneratorExtensions</AssemblyName>
+        <RootNamespace>Datacute.IncrementalGeneratorExtensions</RootNamespace>
+    </PropertyGroup>
 
-	<ItemGroup>
-		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" PrivateAssets="all" />
-	</ItemGroup>
+    <PropertyGroup>
+        <IncludeBuildOutput>false</IncludeBuildOutput>
+        <DevelopmentDependency>true</DevelopmentDependency>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    </PropertyGroup>
 
-	<ItemGroup>
-		<Content Include="*.cs" Pack="true" PackagePath="src/Datacute.IncrementalGeneratorExtensions/" buildAction="None" copyToOutput="false" />
-		<None Include="*.md" Pack="true" PackagePath="src/Datacute.IncrementalGeneratorExtensions/" />
-		<None Include="Datacute.IncrementalGeneratorExtensions.props" Pack="true" PackagePath="build/Datacute.IncrementalGeneratorExtensions.props" />
-		<None Include="../PACKAGE_README.md" Pack="true" PackagePath="/" Visible="false" />
-	</ItemGroup>
+    <PropertyGroup>
+        <PackageId>Datacute.IncrementalGeneratorExtensions</PackageId>
+        <Title>Datacute Incremental Generator Extensions</Title>
+        <Description>Extension methods and helper classes for incremental source generator projects.</Description>
+        <PackageTags>SourceGenerator source compiletime</PackageTags>
+        <PackageReleaseNotes>See full release notes and changelog: $(PackageProjectUrl)/blob/main/CHANGELOG.md</PackageReleaseNotes>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageProjectUrl>https://github.com/datacute/IncrementalGeneratorExtensions</PackageProjectUrl>
+        <NoPackageAnalysis>true</NoPackageAnalysis>
+        <PackageOutputPath>$(MSBuildThisFileDirectory)../artifacts</PackageOutputPath>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!-- Older version to allow running in older SDKs -->
+        <!-- 4.4.0 supports SDK 7.0.1xx and MSBuild/Visual Studio 2022 17.4 -->
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.4.0" PrivateAssets="all" />
+    </ItemGroup>
+
+    <!-- Embed source files as resources -->
+    <ItemGroup>
+        <!-- Embed the source files from specific directories -->
+        <EmbeddedResource Include="..\IncrementalGeneratorExtensions.Content\Datacute\IncrementalGeneratorExtensions\*.cs"
+                          Visible="false"
+                          LogicalName="Datacute.IncrementalGeneratorExtensions.%(Filename)%(Extension)" />
+        <EmbeddedResource Include="..\IncrementalGeneratorExtensions.Content\Microsoft\CodeAnalysis\*.cs"
+                          Visible="false"
+                          LogicalName="Microsoft.CodeAnalysis.%(Filename)%(Extension)" />
+    </ItemGroup>
+
+    <!-- Packaging -->
+    <ItemGroup>
+        <!-- Pack the generator dll in the analyzers/dotnet/cs path -->
+        <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+
+        <!-- Include main package README -->
+        <None Include="..\PACKAGE_README.md" Pack="true" PackagePath="README.md" Visible="false" />
+
+        <!-- Include the .props file for MSBuild integration -->
+        <None Include="build\Datacute.IncrementalGeneratorExtensions.props" Pack="true" PackagePath="build" />
+
+        <!-- Include the usage README that will be conditionally added to consuming projects -->
+        <None Include="content\Datacute.IncrementalGeneratorExtensions.README.md" Pack="true" PackagePath="content" />
+    </ItemGroup>
 
 </Project>

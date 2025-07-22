@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Converted to a source generator
+
+### Added
+
+- GeneratorStage Enum and Descriptions for use with Lightweight Tracing
+
 ## [0.0.3-alpha] - 2025-07-19
 
 ### Fixed
@@ -28,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/datacute/IncrementalGeneratorExtensions/compare/release/0.0.3-alpha...develop
+[Unreleased]: https://github.com/datacute/IncrementalGeneratorExtensions/compare/0.0.3-alpha...develop
 [0.0.3-alpha]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/0.0.3-alpha
 [0.0.2-alpha]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/0.0.2-alpha
 [0.0.1-alpha]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/0.0.1-alpha
