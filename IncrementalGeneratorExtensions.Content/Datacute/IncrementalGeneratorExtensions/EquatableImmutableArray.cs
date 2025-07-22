@@ -36,9 +36,9 @@ namespace Datacute.IncrementalGeneratorExtensions
         // Static factory method with singleton handling
         public static EquatableImmutableArray<T> Create(ImmutableArray<T> values, CancellationToken cancellationToken = default)
         {
-#if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE
+#if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE && !DATACUTE_EXCLUDE_GENERATORSTAGE
             // Record a histogram of the array sizes we are being asked to create
-            LightweightTrace.IncrementCount(values.Length * 1000 + 300);
+            LightweightTrace.IncrementCount(GeneratorStage.EquatableImmutableArrayLength, values.Length);
 #endif
             if (values.IsEmpty)
                 return Empty;
@@ -50,31 +50,34 @@ namespace Datacute.IncrementalGeneratorExtensions
             {
                 for (int i = list.Count - 1; i >= 0; i--)
                 {
+#if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACEEXTENSIONS && !DATACUTE_EXCLUDE_GENERATORSTAGE
+                    cancellationToken.ThrowIfCancellationRequested(0);
+#else
                     cancellationToken.ThrowIfCancellationRequested();
-
+#endif
                     if (list[i].TryGetTarget(out var existing))
                     {
                         if (ValuesEqual(values, existing._values))
                         {
                             // Cache Hit
-#if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE
-                            LightweightTrace.IncrementCount(300);
+#if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE && !DATACUTE_EXCLUDE_GENERATORSTAGE
+                            LightweightTrace.IncrementCount(GeneratorStage.EquatableImmutableArrayCacheHit);
 #endif
                             return existing;
                         }
                     }
                     else
                     {
-#if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE
-                        LightweightTrace.IncrementCount(302);
+#if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE && !DATACUTE_EXCLUDE_GENERATORSTAGE
+                        LightweightTrace.IncrementCount(GeneratorStage.EquatableImmutableArrayCacheWeakReferenceRemoved);
 #endif
                         list.RemoveAt(i);
                     }
                 }
 
                 // Cache Miss: Create a new instance
-#if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE
-                LightweightTrace.IncrementCount(301);
+#if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE && !DATACUTE_EXCLUDE_GENERATORSTAGE
+                LightweightTrace.IncrementCount(GeneratorStage.EquatableImmutableArrayCacheMiss);
 #endif
                 var newResult = new EquatableImmutableArray<T>(values, hash);
                 list.Add(new WeakReference<EquatableImmutableArray<T>>(newResult));

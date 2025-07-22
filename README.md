@@ -52,7 +52,7 @@ to help with the development of incremental source generators in .NET.
 
 When the NuGet package is installed, a README file appears in the consuming project.
 
-THat README file contains details on how to hide it, and a brief introduction to the package's
+That README file contains details on how to hide it, and a brief introduction to the package's
 contents, and some links to further documentation.
 
 The file can be hidden by adding a property to the `.csproj` file:

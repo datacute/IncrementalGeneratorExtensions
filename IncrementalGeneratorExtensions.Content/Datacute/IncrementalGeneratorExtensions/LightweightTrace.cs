@@ -17,6 +17,7 @@ namespace Datacute.IncrementalGeneratorExtensions
     public static class LightweightTrace
     {
         private const int Capacity = 1024;
+        private const int KeyValueShift = 1024;
 
         private static readonly DateTime StartTime = DateTime.UtcNow;
         private static readonly Stopwatch Stopwatch = Stopwatch.StartNew();
@@ -25,7 +26,8 @@ namespace Datacute.IncrementalGeneratorExtensions
         private static int _index;
 
         public static void Add<TEnum>(TEnum eventId) where TEnum : Enum => Add(Convert.ToInt32(eventId));
-
+        public static void Add<TEnum>(TEnum eventId, int value) where TEnum : Enum => Add(Convert.ToInt32(eventId) + value * KeyValueShift);
+        public static void Add(int eventId, int value) => Add(eventId + value * KeyValueShift);
         public static void Add(int eventId)
         {
             var index = Interlocked.Increment(ref _index) % Capacity;
@@ -47,27 +49,11 @@ namespace Datacute.IncrementalGeneratorExtensions
                 var (timestamp, eventId) = Events[index];
                 if (timestamp > 0)
                 {
-                    var item = string.Empty;
-                    if (eventId > 1000)
-                    {
-                        item = $" ({eventId / 1000})";
-                    }
-                    
-                    string text  = null;
-                    if (eventNameMap != null)
-                    {
-                        eventNameMap.TryGetValue(eventId % 1000, out text);
-                    }
-                    if (text == null)
-                    {
-                        text = string.Empty;
-                    }
-
-                    stringBuilder.AppendFormat("{0:o} [{1:000}] {2} {3}",
+                    var textAndValue = GetTextAndValue(eventNameMap, eventId);
+                    stringBuilder.AppendFormat("{0:o} [{1:000}] {2}",
                             StartTime.AddTicks(timestamp),
-                            eventId % 1000,
-                            text,
-                            item)
+                            eventId % KeyValueShift,
+                            textAndValue)
                         .AppendLine();
                 }
             }
@@ -79,21 +65,25 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// Increments the value of a given key by 1.
         /// </summary>
         public static void IncrementCount<TEnum>(TEnum counterId) where TEnum : Enum => IncrementCount(Convert.ToInt32(counterId));
+        public static void IncrementCount<TEnum>(TEnum counterId, int value) where TEnum : Enum => IncrementCount(Convert.ToInt32(counterId), value);
 
         /// <summary>
         /// Decrements the value of a given key by 1.
         /// </summary>
         public static void DecrementCount<TEnum>(TEnum counterId) where TEnum : Enum => DecrementCount(Convert.ToInt32(counterId));
+        public static void DecrementCount<TEnum>(TEnum counterId, int value) where TEnum : Enum => DecrementCount(Convert.ToInt32(counterId), value);
 
         /// <summary>
         /// Increments the value of a given key by 1.
         /// </summary>
         public static void IncrementCount(int counterId) => Counters.AddOrUpdate(counterId, 1, (_, count) => count + 1);
+        public static void IncrementCount(int counterId, int value) => Counters.AddOrUpdate(counterId + value * KeyValueShift, 1, (_, count) => count + 1);
 
         /// <summary>
         /// Decrements the value of a given key by 1.
         /// </summary>
         public static void DecrementCount(int counterId) => Counters.AddOrUpdate(counterId, -1, (_, count) => count - 1);
+        public static void DecrementCount(int counterId, int value) => Counters.AddOrUpdate(counterId + value * KeyValueShift, -1, (_, count) => count - 1);
 
         /// <summary>
         /// Gets a string with the current cache performance metrics.
@@ -107,32 +97,44 @@ namespace Datacute.IncrementalGeneratorExtensions
             }
 
             // Order by key for a consistent, readable output
-            foreach (var kvp in Counters.OrderBy(kvp => kvp.Key % 1000).ThenBy(kvp => kvp.Key))
+            foreach (var kvp in Counters.OrderBy(kvp => kvp.Key % KeyValueShift).ThenBy(kvp => kvp.Key))
             {
                 int counterId = kvp.Key;
                 long count = kvp.Value;
 
-                var item = string.Empty;
-                if (counterId > 1000)
-                {
-                    item = $" ({counterId / 1000})";
-                }
-                string text  = null;
-                if (eventNameMap != null)
-                {
-                    eventNameMap.TryGetValue(counterId % 1000, out text);
-                }
-                if (text == null)
-                {
-                    text = string.Empty;
-                }
+                var textAndValue = GetTextAndValue(eventNameMap, counterId);
                 stringBuilder.AppendFormat(
-                    "[{0:000}] {1}{2}: {3}", 
-                    counterId % 1000, text, item, count)
+                    "[{0:000}] {1}: {2}", 
+                    counterId % KeyValueShift, textAndValue, count)
                     .AppendLine();
             }
         }
 
+        private static string GetTextAndValue(Dictionary<int, string> eventNameMap, int key)
+        {
+            int id = key % KeyValueShift;
+            int value = key / KeyValueShift;
+
+            string text  = null;
+            if (eventNameMap != null)
+            {
+                eventNameMap.TryGetValue(id, out text);
+            }
+            if (text == null)
+            {
+                text = string.Empty;
+            }
+            return (key > KeyValueShift) ? $"{text} ({value})" : text;
+        }
+
+        /// <summary>
+        /// Append a comment containing all the diagnostic counters and logs to the StringBuilder.
+        /// </summary>
+        /// <param name="stringBuilder">The StringBuilder to append the diagnostics comment to.</param>
+        /// <param name="eventNameMap">A dictionary mapping event IDs to their names, used for more readable output.</param>
+        /// <example>
+        ///
+        /// </example>
         public static void AppendDiagnosticsComment(this StringBuilder stringBuilder, Dictionary<int, string> eventNameMap = null)
         {
             if (stringBuilder is null)

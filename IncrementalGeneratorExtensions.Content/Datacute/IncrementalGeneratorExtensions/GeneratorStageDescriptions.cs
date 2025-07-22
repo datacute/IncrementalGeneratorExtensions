@@ -9,7 +9,7 @@ using System.Collections.Generic;
 namespace Datacute.IncrementalGeneratorExtensions
 {
     /// <summary>
-    /// Provides descriptions for various generator stages used in incremental source generators.
+    /// Provides descriptions for various generator stages and counters used in incremental source generators.
     /// </summary>
     public static class GeneratorStageDescriptions
     {
@@ -32,7 +32,8 @@ namespace Datacute.IncrementalGeneratorExtensions
         public static readonly Dictionary<int, string> GeneratorStageNameMap = new Dictionary<int, string>
         {
             { (int)GeneratorStage.Initialize, "Generator Initialize" },
-            
+            { (int)GeneratorStage.Cancellation, "Operation Cancelled" },
+
             // Output registration stages
             { (int)GeneratorStage.RegisterPostInitializationOutput, "Register Post Initialization Output" },
             { (int)GeneratorStage.RegisterSourceOutput, "Register Source Output" },
@@ -61,9 +62,10 @@ namespace Datacute.IncrementalGeneratorExtensions
 
 #if !DATACUTE_EXCLUDE_EQUATABLEIMMUTABLEARRAY
             // EquatableImmutableArray Caching Metrics
-            { 300, "Cache Hit" },
-            { 301, "Cache Miss" },
-            { 302, "Weak Reference Removed" },
+            { (int)GeneratorStage.EquatableImmutableArrayCacheHit, "EquatableImmutableArray Cache Hit" },
+            { (int)GeneratorStage.EquatableImmutableArrayCacheMiss, "EquatableImmutableArray Cache Miss" },
+            { (int)GeneratorStage.EquatableImmutableArrayCacheWeakReferenceRemoved, "EquatableImmutableArray Cache Weak Reference Removed" },
+            { (int)GeneratorStage.EquatableImmutableArrayLength, "EquatableImmutableArray Length" },
 #endif
         };
     }

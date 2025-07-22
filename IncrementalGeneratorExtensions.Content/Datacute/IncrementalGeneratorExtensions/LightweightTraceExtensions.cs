@@ -5,13 +5,14 @@
 
 #if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACEEXTENSIONS
 using System;
+using System.Threading;
 using Microsoft.CodeAnalysis;
 
 namespace Datacute.IncrementalGeneratorExtensions
 {
     public static class LightweightTraceExtensions
     {
-        public static IncrementalValuesProvider<T> Trace<T, TEnum>(this IncrementalValuesProvider<T> source, TEnum eventId) where TEnum : Enum =>
+        public static IncrementalValuesProvider<T> WithTrackingName<T, TEnum>(this IncrementalValuesProvider<T> source, TEnum eventId) where TEnum : Enum =>
             source.Select((input, _) =>
             {
                 LightweightTrace.Add(eventId);
@@ -19,13 +20,21 @@ namespace Datacute.IncrementalGeneratorExtensions
                 return input;
             }).WithTrackingName(Enum.GetName(typeof(TEnum), eventId) ?? $"({eventId})");
 
-        public static IncrementalValueProvider<T> Trace<T, TEnum>(this IncrementalValueProvider<T> source, TEnum eventId) where TEnum : Enum =>
+        public static IncrementalValueProvider<T> WithTrackingName<T, TEnum>(this IncrementalValueProvider<T> source, TEnum eventId) where TEnum : Enum =>
             source.Select((input, _) =>
             {
                 LightweightTrace.Add(eventId);
 
                 return input;
             }).WithTrackingName(Enum.GetName(typeof(TEnum), eventId) ?? $"({eventId})");
+        
+#if !DATACUTE_EXCLUDE_GENERATORSTAGE
+        public static void ThrowIfCancellationRequested(this CancellationToken token, int tracingInstance)
+        {
+            if (token.IsCancellationRequested) LightweightTrace.Add(GeneratorStage.Cancellation, tracingInstance);
+            token.ThrowIfCancellationRequested();
+        }
+#endif
     }
 }
 #endif

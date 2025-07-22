@@ -16,32 +16,41 @@ namespace Datacute.IncrementalGeneratorExtensions
     public enum GeneratorStage
     {
         Initialize = 0,
+        Cancellation = 1,
 
         // Output registration stages
-        RegisterPostInitializationOutput = 1,
-        RegisterSourceOutput = 2,
-        RegisterImplementationSourceOutput = 3,
+        RegisterPostInitializationOutput = 2,
+        RegisterSourceOutput = 3,
+        RegisterImplementationSourceOutput = 4,
 
         // PostInitializationContext Methods
-        PostInitializationContextAddEmbeddedAttributeDefinition = 11,
-        PostInitializationContextAddSource = 12,
+        PostInitializationContextAddEmbeddedAttributeDefinition = 5,
+        PostInitializationContextAddSource = 6,
 
         // SourceProductionContext Methods
-        SourceProductionContextAddSource = 21,
-        SourceProductionContextReportDiagnostic = 22,
+        SourceProductionContextAddSource = 7,
+        SourceProductionContextReportDiagnostic = 8,
         
         // SyntaxProvider Methods
-        CreateSyntaxProvider = 41,
-        ForAttributeWithMetadataNamePredicate = 42,
-        ForAttributeWithMetadataNameTransform = 43,
-        ForAttributeWithMetadataName = 44,
+        CreateSyntaxProvider = 9,
+        ForAttributeWithMetadataName = 10,
+        ForAttributeWithMetadataNamePredicate = 11,
+        ForAttributeWithMetadataNameTransform = 12,
 
         // Methods on various IncrementalValue(s) Providers
-        CompilationProviderSelect = 51,
-        ParseOptionsProviderSelect = 61,
-        AdditionalTextsProviderSelect = 71,
-        AnalyzerConfigOptionsProviderSelect = 81,
-        MetadataReferencesProviderSelect = 91
+        CompilationProviderSelect = 13,
+        ParseOptionsProviderSelect = 14,
+        AdditionalTextsProviderSelect = 15,
+        AnalyzerConfigOptionsProviderSelect = 16,
+        MetadataReferencesProviderSelect = 17,
+        
+#if !DATACUTE_EXCLUDE_EQUATABLEIMMUTABLEARRAY
+        // EquatableImmutableArray Counters
+        EquatableImmutableArrayCacheHit = 18,
+        EquatableImmutableArrayCacheMiss = 19,
+        EquatableImmutableArrayCacheWeakReferenceRemoved = 20,
+        EquatableImmutableArrayLength = 21,
+#endif
     }
 }
 #endif
