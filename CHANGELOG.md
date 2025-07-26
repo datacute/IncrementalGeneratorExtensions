@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-alpha] - 2025-07-26
+
+### Changed
+
+- Converted to a source generator
+- Renamed Trace to be an overload of WithTrackingName
+- Renumbered the GeneratorStage Enum values
+
+### Added
+
+- GeneratorStage Enum and Descriptions for use with Lightweight Tracing
+- CancellationToken.ThrowIfCancellationRequested overload
+- Events (and counters) now support id & instance value
+- AttributeContextAndData and TypeContext to simplify the collection of pertinent attribute context data
+- Auto-Indenting StringBuilder wrappers to aid with indentation in generated source code
+
 ## [0.0.3-alpha] - 2025-07-19
 
 ### Fixed
@@ -28,7 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/datacute/IncrementalGeneratorExtensions/compare/release/0.0.3-alpha...develop
+[Unreleased]: https://github.com/datacute/IncrementalGeneratorExtensions/compare/0.1.0-alpha...develop
+[0.1.0-alpha]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/0.1.0-alpha
 [0.0.3-alpha]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/0.0.3-alpha
 [0.0.2-alpha]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/0.0.2-alpha
 [0.0.1-alpha]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/0.0.1-alpha

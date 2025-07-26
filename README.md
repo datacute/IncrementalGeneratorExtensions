@@ -20,12 +20,8 @@ This GitHub repository is for the development of a NuGet package named
 
 > ... which adds source files ...
 
-The NuGet package is a style of **source-only** package, which means that it adds 
+The NuGet package provides an incremental source generator, which adds 
 source code to be compiled in with the consuming project's own source files.
-
-Normally packages provide compiled binaries, but this package is intended for 
-environments where things work so much more smoothly
-when there are no third party dependencies in the output.
 
 ## What the added source files do
 
@@ -35,10 +31,10 @@ when there are no third party dependencies in the output.
 The added source files are various extensions methods and supporting classes
 to help with the development of incremental source generators in .NET.
 
-- [EmbeddedAttribute Support](IncrementalGeneratorExtensions/EmbeddedAttribute%20README.md)
+- [EmbeddedAttribute Support](docs/EmbeddedAttribute%20README.md)
   - Adds support for Microsoft's `EmbeddedAttribute` when running in older
     SDK & Roslyn versions. This can help with the behaviour of marker attributes.
-- [EquatableImmutableArray](IncrementalGeneratorExtensions/EquatableImmutableArray%20README.md)
+- [EquatableImmutableArray](docs/EquatableImmutableArray%20README.md)
   - Provides an `EquatableImmutableArray<T>` type which enables value-based
     equality comparison of array contents, rather than the reference equality
     of the array instance itself, which is what `ImmutableArray<T>` uses.
@@ -46,41 +42,39 @@ to help with the development of incremental source generators in .NET.
     pipelines, and by converting these to `EquatableImmutableArray<T>` instances,
     the pipeline stages can be correctly identified as having no changes in their
     output.
-- [Lightweight Tracing](IncrementalGeneratorExtensions/LightweightTrace%20README.md)
+- [Attribute Context and Data](docs/AttributeContextAndData%20README.md)
+  - Adds types and extension methods to simplify collecting data about each use of a marker attribute.
+  - `TypeContext` captures the type information.
+  - `AttributeContextAndData` captures the attribute data, which includes the `TypeContext` of the type marked by
+    the attribute, and the `TypeContext` of each of the containing types.
+  - `AttributeContextAndData` has a generic type argument which is your type that holds
+    information collected for the attribute, such as its positional and named arguments.
+- [Indented StringBuilder](docs/IndentingLineAppender%20README.md)
+  - Provides a customisable `IndentingLineAppender` class that wraps a `StringBuilder` and adds
+    auto-indentation support, making it easier to generate indented source code.
+  - Includes a `TabIndentingLineAppender` customisation that uses tabs for indentation.
+- [Lightweight Tracing](docs/LightweightTrace%20README.md)
   - Provides a lightweight tracing mechanism and provides an easy way to integrate
     with the incremental source generator's `WithTrackingName` diagnostic mechanism.
-
-## So is this a Source Generator?
-
-Not quite. While it could have been implemented as a source generator,
-it doesn't use the context within the consuming project
-to change the source files which it makes available.
-(Except that it can disable the inclusion of individual source files.)
-
-The way that this package adds source files is by adding to the dotnet project's contents.
-
-## So is it a standard source-only package?
-
-Not quite. They typically use a `contentFiles` directory for each target framework,
-and while this package is targeting source code generators which use netstandard2.0,
-and would work as a standard source-only package,
-the way that various IDEs automatically include and display the included source files
-does not provide the flexibility that this package desires.
-(Specifically: renaming the directory where the source files appear.)
+  - Supports usage counters and timing logs can be included as a comment in the generated source.
+- [Pipeline Generator Stages Enum](docs/GeneratorStage%20README.md)
+  - Provides an enum `GeneratorStage` with descriptions for each stage of the generator,
+    which can be used to track the execution flow in the Lightweight Tracing methods.
 
 ## Customizing the experience
 
-### Configuring the directory name
+### Hiding the README file
 
-By default, the source files appear alongside the project's source,
-in a directory named `packageSource`
+When the NuGet package is installed, a README file appears in the consuming project.
 
-The consuming project can change the name of this directory by
-adding a property to its `.csproj` file:
+That README file contains details on how to hide it, and a brief introduction to the package's
+contents, and some links to further documentation.
+
+The file can be hidden by adding a property to the `.csproj` file:
 
 ```xml
 <PropertyGroup>
-  <Datacute_PackageSource_DirName>includes</Datacute_PackageSource_DirName>
+  <Datacute_IncludeReadmeFile>false</Datacute_IncludeReadmeFile>
 </PropertyGroup>
 ```
 
@@ -105,13 +99,15 @@ define the relevant constant in the consuming project's `.csproj` file:
 </PropertyGroup>
 ```
 
-The file will still appear in the project, but it will not add anything to the compilation.
+The file will still be generated, but it will not add anything to the compilation.
+
+# Thanks
+
+- Andrew Lock | .NET Escapades
+  - Series: [Creating a source generator](https://andrewlock.net/series/creating-a-source-generator/)
+  - In particular the ['Watch out for collection types'](https://andrewlock.net/creating-a-source-generator-part-9-avoiding-performance-pitfalls-in-incremental-generators/#4-watch-out-for-collection-types)
+    portion of part 9 *Avoiding performance pitfalls in incremental generators*
 
 ---
-<small>
-<small>
-<small>
-Datacute - Acute Information Revelation Tools
-</small>
-</small>
-</small>
+
+*_Datacute - Acute Information Revelation Tools_*

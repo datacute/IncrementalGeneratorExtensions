@@ -9,7 +9,7 @@ incremental source code generator.
 
 **EmbeddedAttribute Support**:
     
-* Adds support for Microsoft's `EmbeddedAttribute` when running in older
+- Adds support for Microsoft's `EmbeddedAttribute` when running in older
   SDK & Roslyn versions.
 
 **EquatableImmutableArray**:
@@ -22,6 +22,22 @@ incremental source code generator.
   the pipeline stages can be correctly identified as having no changes in their
   output.
 
-**Lightweight Tracing**:
+**Attribute Context and Data**
 
-* A simple tracing mechanism that integrates with the incremental source generator's `WithTrackingName` API, making it easier to diagnose and debug your generator's execution.
+- Adds types and extension methods to simplify collecting data about each use of a marker attribute.
+- `TypeContext` captures the type information.
+- `AttributeContextAndData` captures the attribute data, which includes the `TypeContext` of the type marked by 
+  the attribute, and the `TypeContext` of each of the containing types.
+- `AttributeContextAndData` has a generic type argument which is your type that holds
+  information collected for the attribute, such as its positional and named arguments.
+
+**Indented StringBuilder**:
+- Provides a customisable `IndentingLineAppender` class that wraps a `StringBuilder` and adds
+  auto-indentation support, making it easier to generate indented source code.
+
+- **Lightweight Tracing**:
+
+- A simple tracing mechanism that integrates with the incremental source generator's
+  `WithTrackingName` API, making it easier to diagnose and debug your generator's execution.
+- Usage counters and timing logs can be included as a comment in the generated source.
+- Provides an enum `GeneratorStage` with descriptions for common stages of the generator pipeline.
