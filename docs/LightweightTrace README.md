@@ -6,7 +6,11 @@
 
 - Provides a lightweight tracing mechanism and provides an easy way to integrate
   with the incremental source generator's `WithTrackingName` diagnostic mechanism.
-
+- Usage counters and timing logs can be included as a comment in the generated source.
+- Provides an enum `GeneratorStage` with descriptions for each stage of the generator,
+  which can be used to track the execution flow.
+- The `GeneratorStageDescriptions` provides a mapping of the enum values to their descriptions,
+  in English, which can be used when generating diagnostic logs and counters.
 
 # Example Usage
 

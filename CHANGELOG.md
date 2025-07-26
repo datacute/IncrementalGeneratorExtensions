@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GeneratorStage Enum and Descriptions for use with Lightweight Tracing
 - CancellationToken.ThrowIfCancellationRequested overload
 - Events (and counters) now support id & instance value
+- AttributeContextAndData and TypeContext to simplify the collection of pertinent attribute context data
+- Auto-Indenting StringBuilder wrappers to aid with indentation in generated source code
 
 ## [0.0.3-alpha] - 2025-07-19
 

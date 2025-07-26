@@ -14,10 +14,15 @@ using System.Threading;
 
 namespace Datacute.IncrementalGeneratorExtensions
 {
+    /// <summary>
+    /// A lightweight tracing utility that allows for efficient logging of events and counters.
+    /// </summary>
     public static class LightweightTrace
     {
         private const int Capacity = 1024;
-        private const int KeyValueShift = 1024;
+
+        private const int KeyValueShift = 1 << 10;
+        private const int MapValue = 1 << 28;
 
         private static readonly DateTime StartTime = DateTime.UtcNow;
         private static readonly Stopwatch Stopwatch = Stopwatch.StartNew();
@@ -25,16 +30,73 @@ namespace Datacute.IncrementalGeneratorExtensions
         private static readonly (long, int)[] Events = new (long, int)[Capacity];
         private static int _index;
 
+        /// <summary>
+        /// Adds an event to the trace log with the specified event ID.
+        /// </summary>
+        /// <param name="eventId">The ID of the event to log.</param>
+        /// <typeparam name="TEnum">The type of the event ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
         public static void Add<TEnum>(TEnum eventId) where TEnum : Enum => Add(Convert.ToInt32(eventId));
-        public static void Add<TEnum>(TEnum eventId, int value) where TEnum : Enum => Add(Convert.ToInt32(eventId) + value * KeyValueShift);
-        public static void Add(int eventId, int value) => Add(eventId + value * KeyValueShift);
-        public static void Add(int eventId)
+        /// <summary>
+        /// Adds an event to the trace log with the specified event ID and numeric value.
+        /// </summary>
+        /// <param name="eventId">The ID of the event to log.</param>
+        /// <param name="value">The value associated with the event, which can be used for additional context or categorization.</param>
+        /// <typeparam name="TEnum">The type of the event ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
+        public static void Add<TEnum>(TEnum eventId, int value) where TEnum : Enum => Add(Convert.ToInt32(eventId), value);
+        /// <summary>
+        /// Adds an event to the trace log with the specified event ID and enum value.
+        /// </summary>
+        /// <param name="eventId">The ID of the event to log.</param>
+        /// <param name="value">The value associated with the event, which can be used for additional context or categorization.</param>
+        /// <typeparam name="TEnumKey">The type of the event ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
+        /// <typeparam name="TEnumValue">The type of the value, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
+        public static void Add<TEnumKey,TEnumValue>(TEnumKey eventId, TEnumValue value) where TEnumKey : Enum where TEnumValue : Enum => Add(Convert.ToInt32(eventId), Convert.ToInt32(value), true);
+        /// <summary>
+        /// Adds an event to the trace log with the specified numeric event ID and value.
+        /// </summary>
+        /// <param name="eventId">The ID of the event to log.</param>
+        /// <param name="value">The value associated with the event, which can be used for additional context or categorization.</param>
+        /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
+        public static void Add(int eventId, int value, bool mapValue = false) => Add(eventId + value * KeyValueShift, mapValue);
+        /// <summary>
+        /// Adds an event to the trace log with the specified numeric event ID.
+        /// </summary>
+        /// <param name="eventId">The ID of the event to log.</param>
+        /// <param name="mapValue">If true, and the eventId encapsulates a value, the value is treated as a mapped value when generating the diagnostic log.</param>
+        public static void Add(int eventId, bool mapValue = false)
         {
             var index = Interlocked.Increment(ref _index) % Capacity;
-            Events[index] = (Stopwatch.ElapsedTicks, eventId);
-            IncrementCount(eventId);
+            Events[index] = (Stopwatch.ElapsedTicks, eventId | (mapValue ? MapValue : 0));
+#if !DATACUTE_EXCLUDE_GENERATORSTAGE
+            if ((eventId / KeyValueShift) != Convert.ToInt32(GeneratorStage.MethodExit))
+            {
+                IncrementCount(GeneratorStage.MethodCall, eventId % KeyValueShift, true);
+            }
+#else
+            IncrementCount(eventId % KeyValueShift);
+#endif
         }
 
+#if !DATACUTE_EXCLUDE_GENERATORSTAGE
+        /// <summary>
+        /// Adds a method entry event to the trace log with the specified event ID.
+        /// </summary>
+        /// <param name="eventId">The ID of the event to log.</param>
+        /// <typeparam name="TEnum">The type of the event ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
+        public static void MethodEntry<TEnum>(TEnum eventId) where TEnum : Enum => Add(Convert.ToInt32(eventId), Convert.ToInt32(GeneratorStage.MethodEntry), true);
+        /// <summary>
+        /// Adds a method exit event to the trace log with the specified event ID.
+        /// </summary>
+        /// <param name="eventId">The ID of the event to log.</param>
+        /// <typeparam name="TEnum">The type of the event ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
+        public static void MethodExit<TEnum>(TEnum eventId) where TEnum : Enum => Add(Convert.ToInt32(eventId), Convert.ToInt32(GeneratorStage.MethodExit), true);
+#endif
+
+        /// <summary>
+        /// Appends the trace log to the provided StringBuilder.
+        /// </summary>
+        /// <param name="stringBuilder">The StringBuilder to append the trace log to.</param>
+        /// <param name="eventNameMap">A dictionary mapping event IDs and values to their names, used for more readable output.</param>
         public static void AppendTrace(this StringBuilder stringBuilder, Dictionary<int, string> eventNameMap = null)
         {
             if (stringBuilder is null)
@@ -64,31 +126,71 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <summary>
         /// Increments the value of a given key by 1.
         /// </summary>
+        /// <param name="counterId">The ID of the counter to increment.</param>
+        /// <typeparam name="TEnum">The type of the counter ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
         public static void IncrementCount<TEnum>(TEnum counterId) where TEnum : Enum => IncrementCount(Convert.ToInt32(counterId));
-        public static void IncrementCount<TEnum>(TEnum counterId, int value) where TEnum : Enum => IncrementCount(Convert.ToInt32(counterId), value);
+        /// <summary>
+        /// Increments the value of a given key[value] combination by 1.
+        /// </summary>
+        /// <param name="counterId">The ID of the counter to increment.</param>
+        /// <param name="value">The value associated with the counter, which can be used for additional context or categorization.</param>
+        /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
+        /// <typeparam name="TEnum">The type of the counter ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
+        /// <example>
+        /// <code lang="csharp">
+        /// LightweightTrace.IncrementCount(GeneratorStage.EquatableImmutableArrayLength, values.Length);
+        /// LightweightTrace.IncrementCount(GeneratorStage.MethodCall, eventId, true);
+        /// </code>
+        /// </example>
+        public static void IncrementCount<TEnum>(TEnum counterId, int value, bool mapValue = false) where TEnum : Enum => IncrementCount(Convert.ToInt32(counterId), value, mapValue);
 
         /// <summary>
         /// Decrements the value of a given key by 1.
         /// </summary>
+        /// <param name="counterId">The ID of the counter to decrement.</param>
+        /// <typeparam name="TEnum">The type of the counter ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
         public static void DecrementCount<TEnum>(TEnum counterId) where TEnum : Enum => DecrementCount(Convert.ToInt32(counterId));
-        public static void DecrementCount<TEnum>(TEnum counterId, int value) where TEnum : Enum => DecrementCount(Convert.ToInt32(counterId), value);
+        /// <summary>
+        /// Decrements the value of a given key[value] combination by 1.
+        /// </summary>
+        /// <param name="counterId">The ID of the counter to decrement.</param>
+        /// <param name="value">The value associated with the counter, which can be used for additional context or categorization.</param>
+        /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
+        /// <typeparam name="TEnum">The type of the counter ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
+        public static void DecrementCount<TEnum>(TEnum counterId, int value, bool mapValue = false) where TEnum : Enum => DecrementCount(Convert.ToInt32(counterId), value, mapValue);
 
         /// <summary>
         /// Increments the value of a given key by 1.
         /// </summary>
+        /// <param name="counterId">The ID of the counter to increment.</param>
         public static void IncrementCount(int counterId) => Counters.AddOrUpdate(counterId, 1, (_, count) => count + 1);
-        public static void IncrementCount(int counterId, int value) => Counters.AddOrUpdate(counterId + value * KeyValueShift, 1, (_, count) => count + 1);
+        /// <summary>
+        /// Increments the value of a given key[value] combination by 1.
+        /// </summary>
+        /// <param name="counterId">The ID of the counter to increment.</param>
+        /// <param name="value">The value associated with the counter, which can be used for additional context or categorization.</param>
+        /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
+        public static void IncrementCount(int counterId, int value, bool mapValue = false) => Counters.AddOrUpdate(counterId + value * KeyValueShift + (mapValue ? MapValue : 0), 1, (_, count) => count + 1);
 
         /// <summary>
         /// Decrements the value of a given key by 1.
         /// </summary>
+        /// <param name="counterId">The ID of the counter to increment.</param>
         public static void DecrementCount(int counterId) => Counters.AddOrUpdate(counterId, -1, (_, count) => count - 1);
-        public static void DecrementCount(int counterId, int value) => Counters.AddOrUpdate(counterId + value * KeyValueShift, -1, (_, count) => count - 1);
+        /// <summary>
+        /// Decrements the value of a given key[value] combination by 1.
+        /// </summary>
+        /// <param name="counterId">The ID of the counter to decrement.</param>
+        /// <param name="value">The value associated with the counter, which can be used for additional context or categorization.</param>
+        /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
+        public static void DecrementCount(int counterId, int value, bool mapValue = false) => Counters.AddOrUpdate(counterId + value * KeyValueShift + (mapValue ? MapValue : 0), -1, (_, count) => count - 1);
 
         /// <summary>
         /// Gets a string with the current cache performance metrics.
         /// It intelligently separates simple counters from histogram data based on key prefixes.
         /// </summary>
+        /// <param name="stringBuilder">The StringBuilder to append the performance metrics to.</param>
+        /// <param name="eventNameMap">A dictionary mapping event IDs to their names, used for more readable output.</param>
         public static void AppendCounts(this StringBuilder stringBuilder, Dictionary<int, string> eventNameMap = null)
         {
             if (stringBuilder is null)
@@ -115,6 +217,11 @@ namespace Datacute.IncrementalGeneratorExtensions
             int id = key % KeyValueShift;
             int value = key / KeyValueShift;
 
+            if ((key & MapValue) != 0)
+            {
+                value = (key & ~MapValue) / KeyValueShift;
+            }
+
             string text  = null;
             if (eventNameMap != null)
             {
@@ -124,7 +231,21 @@ namespace Datacute.IncrementalGeneratorExtensions
             {
                 text = string.Empty;
             }
-            return (key > KeyValueShift) ? $"{text} ({value})" : text;
+
+            string valueText = null;
+            if (key >= KeyValueShift)
+            {
+                if (eventNameMap != null && (key & MapValue) != 0)
+                {
+                    eventNameMap.TryGetValue(value, out valueText);
+                }
+                if (valueText == null)
+                {
+                    valueText = $"{value}";
+                }
+            }
+
+            return (key >= KeyValueShift) ? $"{text} ({valueText})" : text;
         }
 
         /// <summary>
@@ -133,7 +254,9 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <param name="stringBuilder">The StringBuilder to append the diagnostics comment to.</param>
         /// <param name="eventNameMap">A dictionary mapping event IDs to their names, used for more readable output.</param>
         /// <example>
-        ///
+        /// <code lang="csharp">
+        /// _buffer.AppendDiagnosticsComment(GeneratorStageDescriptions.GeneratorStageNameMap);
+        /// </code>
         /// </example>
         public static void AppendDiagnosticsComment(this StringBuilder stringBuilder, Dictionary<int, string> eventNameMap = null)
         {

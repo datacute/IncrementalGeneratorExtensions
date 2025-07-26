@@ -42,9 +42,24 @@ to help with the development of incremental source generators in .NET.
     pipelines, and by converting these to `EquatableImmutableArray<T>` instances,
     the pipeline stages can be correctly identified as having no changes in their
     output.
+- [Attribute Context and Data](docs/AttributeContextAndData%20README.md)
+  - Adds types and extension methods to simplify collecting data about each use of a marker attribute.
+  - `TypeContext` captures the type information.
+  - `AttributeContextAndData` captures the attribute data, which includes the `TypeContext` of the type marked by
+    the attribute, and the `TypeContext` of each of the containing types.
+  - `AttributeContextAndData` has a generic type argument which is your type that holds
+    information collected for the attribute, such as its positional and named arguments.
+- [Indented StringBuilder](docs/IndentingLineAppender%20README.md)
+  - Provides a customisable `IndentingLineAppender` class that wraps a `StringBuilder` and adds
+    auto-indentation support, making it easier to generate indented source code.
+  - Includes a `TabIndentingLineAppender` customisation that uses tabs for indentation.
 - [Lightweight Tracing](docs/LightweightTrace%20README.md)
   - Provides a lightweight tracing mechanism and provides an easy way to integrate
     with the incremental source generator's `WithTrackingName` diagnostic mechanism.
+  - Supports usage counters and timing logs can be included as a comment in the generated source.
+- [Pipeline Generator Stages Enum](docs/GeneratorStage%20README.md)
+  - Provides an enum `GeneratorStage` with descriptions for each stage of the generator,
+    which can be used to track the execution flow in the Lightweight Tracing methods.
 
 ## Customizing the experience
 

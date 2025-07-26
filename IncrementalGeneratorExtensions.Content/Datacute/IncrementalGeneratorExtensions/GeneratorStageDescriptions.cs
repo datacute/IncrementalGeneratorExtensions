@@ -51,7 +51,7 @@ namespace Datacute.IncrementalGeneratorExtensions
             { (int)GeneratorStage.CreateSyntaxProvider, "CreateSyntaxProvider Called" },
             { (int)GeneratorStage.ForAttributeWithMetadataNamePredicate, "ForAttributeWithMetadataName Predicate" },
             { (int)GeneratorStage.ForAttributeWithMetadataNameTransform, "ForAttributeWithMetadataName Transform" },
-            { (int)GeneratorStage.ForAttributeWithMetadataName, "ForAttributeWithMetadataName Called" },
+            { (int)GeneratorStage.ForAttributeWithMetadataName, "ForAttributeWithMetadataName Pipeline Output" },
 
             // Methods on various IncrementalValue(s) Providers
             { (int)GeneratorStage.CompilationProviderSelect, "CompilationProvider Select" },
@@ -67,6 +67,10 @@ namespace Datacute.IncrementalGeneratorExtensions
             { (int)GeneratorStage.EquatableImmutableArrayCacheWeakReferenceRemoved, "EquatableImmutableArray Cache Weak Reference Removed" },
             { (int)GeneratorStage.EquatableImmutableArrayLength, "EquatableImmutableArray Length" },
 #endif
+            
+            { (int)GeneratorStage.MethodCall, "Method Call" },
+            { (int)GeneratorStage.MethodEntry, "Method Entry" },
+            { (int)GeneratorStage.MethodExit, "Method Exit" },
         };
     }
 }

@@ -31,6 +31,21 @@ Datacute.IncrementalGeneratorExtensions provides utility methods and classes to 
 - Helps maintain the incremental nature of your generators by correctly identifying unchanged outputs
 - Adds extension methods `CombineEquatable` and `CollectEquatable` to simplify use within incremental pipelines
 
+## Attribute Context and Data
+
+- Adds types and extension methods to simplify collecting data about each use of a marker attribute.
+- `TypeContext` captures the type information.
+- `AttributeContextAndData` captures the attribute data, which includes the `TypeContext` of the type marked by
+  the attribute, and the `TypeContext` of each of the containing types.
+- `AttributeContextAndData` has a generic type argument which is your type that holds
+  information collected for the attribute, such as its positional and named arguments.
+
+## Indented StringBuilder
+
+- Provides a customisable `IndentingLineAppender` class that wraps a `StringBuilder` and adds
+  auto-indentation support, making it easier to generate indented source code.
+- Includes a `TabIndentingLineAppender` customisation that uses tabs for indentation.
+
 ## Lightweight Tracing and Generator Stages
 
 It can be challenging to get runtime diagnostics for your incremental source generator.
@@ -57,6 +72,7 @@ making it easier to debug and understand the flow of your generator.
   ```csharp
   _buffer.AppendDiagnosticsComment(GeneratorStageDescriptions.GeneratorStageNameMap);
   ```
+
 
 
 # Additional Resources

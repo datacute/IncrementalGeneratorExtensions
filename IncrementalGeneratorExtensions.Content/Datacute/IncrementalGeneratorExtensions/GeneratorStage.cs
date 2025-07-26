@@ -51,6 +51,11 @@ namespace Datacute.IncrementalGeneratorExtensions
         EquatableImmutableArrayCacheWeakReferenceRemoved = 20,
         EquatableImmutableArrayLength = 21,
 #endif
+        
+        // Generic Method Call Tracing
+        MethodCall = 50,
+        MethodEntry = 51,
+        MethodExit = 52,
     }
 }
 #endif
