@@ -7,6 +7,11 @@ incremental source code generator.
 
 ## Features Included
 
+**SourceTextGenerator Base Class**
+
+- Provides a base class for incremental source generators that handles the boilerplate
+  of generating a partial class (or similar) file for an instance of a marker attribute.
+
 **EmbeddedAttribute Support**:
     
 - Adds support for Microsoft's `EmbeddedAttribute` when running in older

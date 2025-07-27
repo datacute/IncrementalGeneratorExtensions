@@ -31,6 +31,9 @@ source code to be compiled in with the consuming project's own source files.
 The added source files are various extensions methods and supporting classes
 to help with the development of incremental source generators in .NET.
 
+- [SourceTextGenerator Base Class](docs/SourceTextGeneratorBase%20README.md)
+  - Provides a base class for incremental source generators that handles the boilerplate
+    of generating a partial class (or similar) file for an instance of a marker attribute.
 - [EmbeddedAttribute Support](docs/EmbeddedAttribute%20README.md)
   - Adds support for Microsoft's `EmbeddedAttribute` when running in older
     SDK & Roslyn versions. This can help with the behaviour of marker attributes.

@@ -20,6 +20,11 @@ When you don't want this README file to be included in your project, you disable
 
 Datacute.IncrementalGeneratorExtensions provides utility methods and classes to simplify the development of .NET Incremental Source Generators. The package contains several features to enhance your source generator development experience.
 
+## SourceTextGenerator Base Class
+
+- Provides a base class for incremental source generators that handles the boilerplate
+  of generating a partial class (or similar) file for an instance of a marker attribute.
+
 ## EmbeddedAttribute Support
 
 - Adds the `EmbeddedAttribute` definition for use in older .NET SDK versions

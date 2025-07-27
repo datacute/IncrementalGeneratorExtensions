@@ -33,6 +33,14 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// The data associated with the attribute, which is typically collected from the attribute's syntax context.
         /// </summary>
         public readonly T AttributeData;
+        /// <summary>
+        /// Indicates whether the attribute is in a file with a file-scoped namespace.
+        /// </summary>
+        public readonly bool IsInFileScopedNamespace;
+        /// <summary>
+        /// True if the nullable context is enabled at the location of the attribute.
+        /// </summary>
+        public readonly bool IsNullableContextEnabled;
 
         /// <summary>
         /// Indicates whether the containing namespace is the global namespace.
@@ -53,14 +61,20 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <param name="context">The context of the type to which the attribute is applied.</param>
         /// <param name="containingTypes">A collection of contexts for the containing types of the attribute's target symbol.</param>
         /// <param name="attributeData">The data associated with the attribute, which is typically collected from the attribute's syntax context.</param>
+        /// <param name="isInFileScopedNamespace">True if the attribute is in a file with a file-scoped namespace</param>
+        /// <param name="isNullableContextEnabled">True if the nullable context is enabled at the location of the attribute.</param>
         public AttributeContextAndData(
             TypeContext context, 
             EquatableImmutableArray<TypeContext> containingTypes, 
-            T attributeData)
+            T attributeData,
+            bool isInFileScopedNamespace,
+            bool isNullableContextEnabled)
         {
             Context = context;
             ContainingTypes = containingTypes;
             AttributeData = attributeData;
+            IsInFileScopedNamespace = isInFileScopedNamespace;
+            IsNullableContextEnabled = isNullableContextEnabled;
         }
 
         /// <inheritdoc />
@@ -198,6 +212,21 @@ namespace Datacute.IncrementalGeneratorExtensions
             var attributeTargetSymbol = (ITypeSymbol)generatorAttributeSyntaxContext.TargetSymbol;
             var typeDeclaration = (TypeDeclarationSyntax)generatorAttributeSyntaxContext.TargetNode;
 
+            var isInFileScopedNamespace = false;
+            if (typeDeclaration.SyntaxTree.GetRoot(token) is CompilationUnitSyntax compilationUnit)
+            {
+                foreach (var member in compilationUnit.Members)
+                {
+                    if (member.GetType().Name == "FileScopedNamespaceDeclarationSyntax")
+                    {
+                        isInFileScopedNamespace = true;
+                        break;
+                    }
+                }
+            }
+            
+            var isNullableContextEnabled = GetIsNullableContextEnabled(generatorAttributeSyntaxContext.SemanticModel, typeDeclaration.SpanStart);
+
             EquatableImmutableArray<string> typeParameterNames;
             if (generatorAttributeSyntaxContext.TargetSymbol is INamedTypeSymbol namedTypeTargetSymbol)
             {
@@ -270,9 +299,42 @@ namespace Datacute.IncrementalGeneratorExtensions
             var attributeContextAndData = new AttributeContextAndData<T>(
                 typeContext,
                 containingTypes,
-                attributeData);
+                attributeData,
+                isInFileScopedNamespace,
+                isNullableContextEnabled);
 
             return attributeContextAndData;
+        }
+        
+        
+        // This delegate is initialized to point to the bootstrap method. 
+        // After the first run, it will point to the final, efficient implementation.
+        private static Func<SemanticModel, int, bool> GetIsNullableContextEnabled = BootstrapGetIsNullableContextEnabled;
+
+        private static bool BootstrapGetIsNullableContextEnabled(SemanticModel semanticModel, int position)
+        {
+            var getNullableContextMethod = typeof(SemanticModel).GetMethod("GetNullableContext", new[] { typeof(int) });
+
+            if (getNullableContextMethod != null)
+            {
+                // The GetNullableContext method exists.
+                // Replace the delegate with an implementation that uses reflection to get the value.
+                GetIsNullableContextEnabled = (sm, pos) =>
+                {
+                    var nullableContext = getNullableContextMethod.Invoke(sm, new object[] { pos });
+                    // NullableContext.AnnotationsEnabled is 1 << 1 = 2
+                    return ((int)nullableContext & 2) != 0;
+                };
+            }
+            else
+            {
+                // The method doesn't exist on this version of Roslyn.
+                // Replace the delegate with an implementation that always returns false.
+                GetIsNullableContextEnabled = (sm, pos) => false;
+            }
+
+            // Call the newly assigned delegate to return the result for the current invocation.
+            return GetIsNullableContextEnabled(semanticModel, position);
         }
     }
 }
