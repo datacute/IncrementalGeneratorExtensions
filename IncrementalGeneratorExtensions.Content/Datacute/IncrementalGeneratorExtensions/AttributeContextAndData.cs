@@ -6,7 +6,6 @@
 #if !DATACUTE_EXCLUDE_ATTRIBUTECONTEXTANDDATA && !DATACUTE_EXCLUDE_TYPECONTEXT
 using System;
 using System.Collections.Immutable;
-using System.Linq;
 using System.Text;
 using System.Threading;
 using Microsoft.CodeAnalysis;
@@ -104,21 +103,14 @@ namespace Datacute.IncrementalGeneratorExtensions
 
             foreach (var containingType in ContainingTypes)
             {
-                sb.Append(GetTypeNameWithArity(containingType)).Append(".");
+                sb.Append(containingType.GetNameWithTypeParametersForHint()).Append(".");
             }
 
-            sb.Append(GetTypeNameWithArity(Context));
+            sb.Append(Context.GetNameWithTypeParametersForHint());
             
             sb.Append(".").Append(generatorName).Append(".g.cs");
 
             return sb.ToString();
-        }
-
-        private string GetTypeNameWithArity(TypeContext typeContext)
-        {
-            return typeContext.TypeParameterNames.Any() 
-                ? $"{typeContext.Name}_{string.Join("_", typeContext.TypeParameterNames)}"
-                : typeContext.Name;
         }
         
         /// <summary>

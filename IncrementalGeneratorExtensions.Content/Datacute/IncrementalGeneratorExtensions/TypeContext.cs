@@ -269,6 +269,17 @@ namespace Datacute.IncrementalGeneratorExtensions
             typeParameterNames.Any()
                 ? $"<{string.Join(",", typeParameterNames)}>"
                 : string.Empty;
+        
+        /// <summary>
+        /// Gets a name for the type context that includes the type parameters, suitable for use in hints or identifiers.
+        /// </summary>
+        /// <returns>A string representing the type name with type parameters, such as "MyClass_T1_T2" or just "MyClass" if there are no type parameters.</returns>
+        public string GetNameWithTypeParametersForHint()
+        {
+            return TypeParameterNames != null && TypeParameterNames.Length > 0
+                ? $"{Name}_{string.Join("_", TypeParameterNames)}"
+                : Name;
+        }
     }
 }
 #endif
