@@ -1,8 +1,7 @@
 <Project>
     <PropertyGroup>
         <!-- Default to true if not defined by the user -->
-<!--        <Datacute_IncludeReadmeFile Condition="'$(Datacute_IncludeReadmeFile)' == ''">true</Datacute_IncludeReadmeFile>-->
-        <Visible>true</Visible>
+        <Datacute_IncludeReadmeFile Condition="'$(Datacute_IncludeReadmeFile)' == ''">true</Datacute_IncludeReadmeFile>
     </PropertyGroup>
 
     <ItemGroup>
