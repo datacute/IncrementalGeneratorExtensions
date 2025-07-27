@@ -24,6 +24,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{9AB420CB-0
 		docs\AttributeContextAndData README.md = docs\AttributeContextAndData README.md
 		docs\GeneratorStage README.md = docs\GeneratorStage README.md
 		docs\IndentingLineAppender README.md = docs\IndentingLineAppender README.md
+		docs\SourceTextGeneratorBase README.md = docs\SourceTextGeneratorBase README.md
 	EndProjectSection
 EndProject
 Global
