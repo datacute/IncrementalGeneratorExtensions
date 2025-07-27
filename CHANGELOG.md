@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Added more information to TypeContext, and reduced AttributeContextAndData
+
 ## [0.1.0-alpha] - 2025-07-26
 
 ### Changed
