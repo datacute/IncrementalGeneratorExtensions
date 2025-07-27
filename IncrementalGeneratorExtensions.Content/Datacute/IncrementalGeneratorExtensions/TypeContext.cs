@@ -135,11 +135,24 @@ namespace Datacute.IncrementalGeneratorExtensions
         }
 
         /// <summary>
+        /// Gets the display string for a namespace symbol, excluding the global namespace.
+        /// </summary>
+        /// <param name="namespaceSymbol">The namespace symbol to get the display string for.</param>
+        /// <returns>A string representing the namespace, or an empty string if it is the global namespace.</returns>
+        /// <remarks>Newer Roslyn versions can use ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle.Omitted))</remarks>
+        public static string GetNamespaceDisplayString(INamespaceSymbol namespaceSymbol)
+        {
+            if (namespaceSymbol.IsGlobalNamespace)
+                return string.Empty;
+    
+            return namespaceSymbol.ToDisplayString();
+        }
+
+        /// <summary>
         /// Gets the accessibility modifier for this type context.
         /// </summary>
         /// <returns>A string representing the accessibility modifier, such as "public ", "private ", etc.</returns>
         public string GetAccessibilityModifier() => GetAccessibilityModifier(Accessibility);
-
         /// <summary>
         /// Gets the accessibility modifier for a given <see cref="Accessibility"/> value.
         /// </summary>
@@ -208,7 +221,7 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <summary>
         /// Gets the sealed modifier for this type context.
         /// </summary>
-        /// <returns>>A string representing the sealed modifier, such as "sealed " or an empty string.</returns>
+        /// <returns>A string representing the sealed modifier, such as "sealed " or an empty string.</returns>
         public string GetSealedModifier() => GetSealedModifier(IsSealed);
         /// <summary>
         /// Gets the sealed modifier for a given sealed status.

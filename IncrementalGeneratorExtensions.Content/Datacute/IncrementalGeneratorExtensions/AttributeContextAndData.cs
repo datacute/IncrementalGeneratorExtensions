@@ -116,11 +116,9 @@ namespace Datacute.IncrementalGeneratorExtensions
 
         private string GetTypeNameWithArity(TypeContext typeContext)
         {
-            if (typeContext.TypeParameterNames.Any())
-            {
-                return $"{typeContext.Name}-{typeContext.TypeParameterNames.Length}";
-            }
-            return typeContext.Name;
+            return typeContext.TypeParameterNames.Any() 
+                ? $"{typeContext.Name}_{string.Join("_", typeContext.TypeParameterNames)}"
+                : typeContext.Name;
         }
         
         /// <summary>
@@ -222,7 +220,7 @@ namespace Datacute.IncrementalGeneratorExtensions
             }
 
             var typeContext = new TypeContext(
-                attributeTargetSymbol.ContainingNamespace.ToDisplayString(),
+                TypeContext.GetNamespaceDisplayString(attributeTargetSymbol.ContainingNamespace),
                 attributeTargetSymbol.Name,
                 attributeTargetSymbol.IsStatic,
                 isPartial: true, // Known to be true because of the predicate
@@ -258,7 +256,7 @@ namespace Datacute.IncrementalGeneratorExtensions
                     var containingTypeIsPartial = true;
 
                     containingTypesImmutableArrayBuilder.Insert(0, new TypeContext(
-                        containingType.ContainingNamespace.ToDisplayString(),
+                        TypeContext.GetNamespaceDisplayString(containingType.ContainingNamespace),
                         containingType.Name, 
                         containingType.IsStatic,
                         containingTypeIsPartial,
