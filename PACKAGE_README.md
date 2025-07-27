@@ -35,7 +35,7 @@ incremental source code generator.
 - Provides a customisable `IndentingLineAppender` class that wraps a `StringBuilder` and adds
   auto-indentation support, making it easier to generate indented source code.
 
-- **Lightweight Tracing**:
+**Lightweight Tracing**:
 
 - A simple tracing mechanism that integrates with the incremental source generator's
   `WithTrackingName` API, making it easier to diagnose and debug your generator's execution.

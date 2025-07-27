@@ -6,8 +6,10 @@
 #if !DATACUTE_EXCLUDE_ATTRIBUTECONTEXTANDDATA && !DATACUTE_EXCLUDE_TYPECONTEXT
 using System;
 using System.Collections.Immutable;
+using System.Text;
 using System.Threading;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Datacute.IncrementalGeneratorExtensions
@@ -20,14 +22,6 @@ namespace Datacute.IncrementalGeneratorExtensions
         where T : IEquatable<T>
     {
         /// <summary>
-        /// Indicates whether the containing namespace is the global namespace.
-        /// </summary>
-        public readonly bool ContainingNamespaceIsGlobalNamespace;
-        /// <summary>
-        /// The display string of the containing namespace.
-        /// </summary>
-        public readonly string ContainingNamespaceDisplayString;
-        /// <summary>
         /// The context of the type to which the attribute is applied.
         /// </summary>
         public readonly TypeContext Context;
@@ -35,108 +29,44 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// A collection of contexts for the containing types of the attribute's target symbol.
         /// </summary>
         public readonly EquatableImmutableArray<TypeContext> ContainingTypes;
-        
-        /// <summary>
-        /// The display string of the attribute's target symbol, formatted as Namespace.ClassName.
-        /// </summary>
-        /// <remarks>
-        /// This string is useful for generating a hint name for the attribute, as it provides a
-        /// fully qualified name that includes the namespace and class name.
-        /// </remarks>
-        public readonly string DisplayString;
-
-        /// <summary>
-        /// Indicates whether the attribute's target symbol has any containing types.
-        /// </summary>
-        public bool HasContainingTypes => ContainingTypes.Length > 0;
-
         /// <summary>
         /// The data associated with the attribute, which is typically collected from the attribute's syntax context.
         /// </summary>
         public readonly T AttributeData;
 
         /// <summary>
+        /// Indicates whether the containing namespace is the global namespace.
+        /// </summary>
+        public bool ContainingNamespaceIsGlobalNamespace => string.IsNullOrEmpty(Context.Namespace);
+        /// <summary>
+        /// The display string of the containing namespace.
+        /// </summary>
+        public string ContainingNamespaceDisplayString => Context.Namespace;
+        /// <summary>
+        /// Indicates whether the attribute's target symbol has any containing types.
+        /// </summary>
+        public bool HasContainingTypes => ContainingTypes.Length > 0;
+        
+        /// <summary>
         /// Initializes a new instance of the <see cref="AttributeContextAndData{T}"/> struct.
         /// </summary>
-        /// <param name="generatorAttributeSyntaxContext">The context of the attribute syntax, which includes information about the target symbol and the attribute itself.</param>
-        /// <param name="attributeData">The data associated with the attribute, typically collected from the attribute's syntax context.</param>
-        public AttributeContextAndData(in GeneratorAttributeSyntaxContext generatorAttributeSyntaxContext, in T attributeData)
+        /// <param name="context">The context of the type to which the attribute is applied.</param>
+        /// <param name="containingTypes">A collection of contexts for the containing types of the attribute's target symbol.</param>
+        /// <param name="attributeData">The data associated with the attribute, which is typically collected from the attribute's syntax context.</param>
+        public AttributeContextAndData(
+            TypeContext context, 
+            EquatableImmutableArray<TypeContext> containingTypes, 
+            T attributeData)
         {
+            Context = context;
+            ContainingTypes = containingTypes;
             AttributeData = attributeData;
-
-            // No diagnostic tracing here - this triggers for each matching attribute, every time you type.
-            // the time taken within this method is about 1% of the time the source generator takes
-            // to process the attribute.
-
-            var attributeTargetSymbol = (ITypeSymbol)generatorAttributeSyntaxContext.TargetSymbol;
-
-            ContainingNamespaceIsGlobalNamespace = attributeTargetSymbol.ContainingNamespace.IsGlobalNamespace;
-            ContainingNamespaceDisplayString = attributeTargetSymbol.ContainingNamespace.ToDisplayString();
-
-            EquatableImmutableArray<string> typeParameterNames;
-            if (generatorAttributeSyntaxContext.TargetSymbol is INamedTypeSymbol namedTypeTargetSymbol)
-            {
-                ImmutableArray<ITypeParameterSymbol> typeParameters = namedTypeTargetSymbol.TypeParameters;
-                typeParameterNames = typeParameters.Length > 0
-                    ? typeParameters.ToEquatableImmutableArray(tp => tp.Name)
-                    : EquatableImmutableArray<string>.Empty;
-            }
-            else
-            {
-                typeParameterNames = EquatableImmutableArray<string>.Empty;
-            }
-
-            Context = new TypeContext(
-                attributeTargetSymbol.Name,
-                attributeTargetSymbol.IsStatic,
-                attributeTargetSymbol.DeclaredAccessibility,
-                TypeContext.GetRecordStructOrClass(attributeTargetSymbol),
-                typeParameterNames);
-
-            DisplayString = attributeTargetSymbol.ToDisplayString();
-        
-            // Parse parent classes from symbol's containing types
-            var parentClassCount = 0;
-            var containingType = attributeTargetSymbol.ContainingType;
-            // Count the number of parent classes
-            while (containingType != null)
-            {
-                parentClassCount++;
-                containingType = containingType.ContainingType;
-            }
-
-            if (parentClassCount > 0)
-            {
-                containingType = attributeTargetSymbol.ContainingType;
-                var containingTypesImmutableArrayBuilder = ImmutableArray.CreateBuilder<TypeContext>(parentClassCount);
-                for (var i = 0; i < parentClassCount; i++)
-                {
-                    var typeParameters = containingType.TypeParameters;
-                    var containingTypeTypeParameterNames = typeParameters.Length > 0
-                        ? typeParameters.ToEquatableImmutableArray(tp => tp.Name)
-                        : EquatableImmutableArray<string>.Empty;
-
-                    containingTypesImmutableArrayBuilder.Insert(0, new TypeContext(
-                        containingType.Name, 
-                        containingType.IsStatic,
-                        containingType.DeclaredAccessibility,
-                        TypeContext.GetRecordStructOrClass(containingType),
-                        containingTypeTypeParameterNames));
-                    containingType = containingType.ContainingType;
-                }
-
-                ContainingTypes = containingTypesImmutableArrayBuilder.MoveToImmutable().ToEquatableImmutableArray();
-            }
-            else
-            {
-                ContainingTypes = EquatableImmutableArray<TypeContext>.Empty;
-            }
         }
 
         /// <inheritdoc />
         public bool Equals(AttributeContextAndData<T> other)
         {
-            return ContainingNamespaceIsGlobalNamespace == other.ContainingNamespaceIsGlobalNamespace && ContainingNamespaceDisplayString == other.ContainingNamespaceDisplayString && Context.Equals(other.Context) && Equals(ContainingTypes, other.ContainingTypes) && DisplayString == other.DisplayString && AttributeData.Equals(other.AttributeData);
+            return Context.Equals(other.Context) && Equals(ContainingTypes, other.ContainingTypes) && AttributeData.Equals(other.AttributeData);
         }
 
         /// <inheritdoc />
@@ -150,22 +80,48 @@ namespace Datacute.IncrementalGeneratorExtensions
         {
             unchecked
             {
-                var hashCode = ContainingNamespaceIsGlobalNamespace.GetHashCode();
-                hashCode = (hashCode * 397) ^ (ContainingNamespaceDisplayString != null ? ContainingNamespaceDisplayString.GetHashCode() : 0);
-                hashCode = (hashCode * 397) ^ Context.GetHashCode();
+                var hashCode = Context.GetHashCode();
                 hashCode = (hashCode * 397) ^ (ContainingTypes != null ? ContainingTypes.GetHashCode() : 0);
-                hashCode = (hashCode * 397) ^ (DisplayString != null ? DisplayString.GetHashCode() : 0);
                 hashCode = (hashCode * 397) ^ (AttributeData != null ? AttributeData.GetHashCode() : 0);
                 return hashCode;
             }
         }
         
         /// <summary>
-        /// Predicate to determine if the syntax node is a type declaration syntax.
+        /// Creates a file-safe hint name for a generated source file based on the type's context.
+        /// </summary>
+        /// <param name="generatorName">A specific name for your generator, e.g., "JsonSerializable"</param>
+        /// <returns>A hint name, e.g., "My.Namespace.MyType-1.MyNestedType.JsonSerializable.g.cs"</returns>
+        public string CreateHintName(string generatorName)
+        {
+            var sb = new StringBuilder();
+
+            if (!string.IsNullOrEmpty(Context.Namespace))
+            {
+                sb.Append(Context.Namespace).Append(".");
+            }
+
+            foreach (var containingType in ContainingTypes)
+            {
+                sb.Append(containingType.GetNameWithTypeParametersForHint()).Append(".");
+            }
+
+            sb.Append(Context.GetNameWithTypeParametersForHint());
+            
+            sb.Append(".").Append(generatorName).Append(".g.cs");
+
+            return sb.ToString();
+        }
+        
+        /// <summary>
+        /// Predicate to determine if the syntax node is a partial type declaration syntax.
         /// </summary>
         /// <param name="syntaxNode">The syntax node to check.</param>
         /// <param name="token">The cancellation token to observe for cancellation requests.</param>
-        /// <returns> True if the syntax node is a type declaration syntax, otherwise false.</returns>
+        /// <returns> True if the syntax node is a type declaration syntax, and is partial, otherwise false.</returns>
+        /// <remarks>
+        /// This supports structs, classes, records, and interfaces that are declared as partial.
+        /// </remarks>
         /// <example>
         /// <code lang="csharp">
         /// context.SyntaxProvider
@@ -182,13 +138,27 @@ namespace Datacute.IncrementalGeneratorExtensions
         {
 #if !DATACUTE_EXCLUDE_GENERATORSTAGE && !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE
             LightweightTrace.IncrementCount(GeneratorStage.ForAttributeWithMetadataNamePredicate);
-#if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACEEXTENSIONS
-            token.ThrowIfCancellationRequested(GeneratorStage.ForAttributeWithMetadataNamePredicate);
-#else
-            token.ThrowIfCancellationRequested();
 #endif
-#endif
-            return syntaxNode is TypeDeclarationSyntax;
+            // We are only interested in partial type declarations
+            var typeDeclaration = syntaxNode as TypeDeclarationSyntax;
+            if (typeDeclaration == null || !typeDeclaration.Modifiers.Any(SyntaxKind.PartialKeyword))
+            {
+                return false;
+            }
+
+            // Now, ensure all containing types are also partial.
+            // This is necessary to be able to generate code for partial types correctly.
+            SyntaxNode parent = typeDeclaration.Parent;
+            while (parent is TypeDeclarationSyntax containingTypeDeclaration)
+            {
+                if (!containingTypeDeclaration.Modifiers.Any(SyntaxKind.PartialKeyword))
+                {
+                    return false;
+                }
+                parent = containingTypeDeclaration.Parent;
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -210,7 +180,10 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// </code>
         /// </example>
         /// <seealso cref="AttributeContextAndDataExtensions.SelectAttributeContexts{T}"/>
-        public static AttributeContextAndData<T> Transform(GeneratorAttributeSyntaxContext generatorAttributeSyntaxContext, Func<GeneratorAttributeSyntaxContext, T> attributeDataCollector, CancellationToken token)
+        public static AttributeContextAndData<T> Transform(
+            GeneratorAttributeSyntaxContext generatorAttributeSyntaxContext, 
+            Func<GeneratorAttributeSyntaxContext, T> attributeDataCollector, 
+            CancellationToken token)
         {
 #if !DATACUTE_EXCLUDE_GENERATORSTAGE && !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE
             LightweightTrace.IncrementCount(GeneratorStage.ForAttributeWithMetadataNameTransform);
@@ -221,7 +194,84 @@ namespace Datacute.IncrementalGeneratorExtensions
 #endif
 #endif
             T attributeData = attributeDataCollector(generatorAttributeSyntaxContext);
-            var attributeContextAndData = new AttributeContextAndData<T>(generatorAttributeSyntaxContext, attributeData);
+
+            var attributeTargetSymbol = (ITypeSymbol)generatorAttributeSyntaxContext.TargetSymbol;
+            var typeDeclaration = (TypeDeclarationSyntax)generatorAttributeSyntaxContext.TargetNode;
+
+            EquatableImmutableArray<string> typeParameterNames;
+            if (generatorAttributeSyntaxContext.TargetSymbol is INamedTypeSymbol namedTypeTargetSymbol)
+            {
+                ImmutableArray<ITypeParameterSymbol> typeParameters = namedTypeTargetSymbol.TypeParameters;
+                typeParameterNames = typeParameters.Length > 0
+                    ? typeParameters.ToEquatableImmutableArray(tp => tp.Name)
+                    : EquatableImmutableArray<string>.Empty;
+            }
+            else
+            {
+                typeParameterNames = EquatableImmutableArray<string>.Empty;
+            }
+
+            var typeContext = new TypeContext(
+                TypeContext.GetNamespaceDisplayString(attributeTargetSymbol.ContainingNamespace),
+                attributeTargetSymbol.Name,
+                attributeTargetSymbol.IsStatic,
+                isPartial: true, // Known to be true because of the predicate
+                attributeTargetSymbol.IsAbstract,
+                attributeTargetSymbol.IsSealed,
+                attributeTargetSymbol.DeclaredAccessibility,
+                TypeContext.GetTypeDeclarationKeyword(attributeTargetSymbol),
+                typeParameterNames);
+
+            // Parse parent classes from symbol's containing types
+            var parentClassCount = 0;
+            var containingType = attributeTargetSymbol.ContainingType;
+            // Count the number of parent classes
+            while (containingType != null)
+            {
+                parentClassCount++;
+                containingType = containingType.ContainingType;
+            }
+
+            EquatableImmutableArray<TypeContext> containingTypes;
+            if (parentClassCount > 0)
+            {
+                containingType = attributeTargetSymbol.ContainingType;
+                var containingTypesImmutableArrayBuilder = ImmutableArray.CreateBuilder<TypeContext>(parentClassCount);
+                for (var i = 0; i < parentClassCount; i++)
+                {
+                    var typeParameters = containingType.TypeParameters;
+                    var containingTypeTypeParameterNames = typeParameters.Length > 0
+                        ? typeParameters.ToEquatableImmutableArray(tp => tp.Name)
+                        : EquatableImmutableArray<string>.Empty;
+
+                    // The predicate has already confirmed that this type is partial.
+                    var containingTypeIsPartial = true;
+
+                    containingTypesImmutableArrayBuilder.Insert(0, new TypeContext(
+                        TypeContext.GetNamespaceDisplayString(containingType.ContainingNamespace),
+                        containingType.Name, 
+                        containingType.IsStatic,
+                        containingTypeIsPartial,
+                        containingType.IsAbstract,
+                        containingType.IsSealed,
+                        containingType.DeclaredAccessibility,
+                        TypeContext.GetTypeDeclarationKeyword(containingType),
+                        containingTypeTypeParameterNames));
+                    containingType = containingType.ContainingType;
+                }
+
+                containingTypes = containingTypesImmutableArrayBuilder.MoveToImmutable().ToEquatableImmutableArray();
+            }
+            else
+            {
+                containingTypes = EquatableImmutableArray<TypeContext>.Empty;
+            }
+
+            var attributeContextAndData = new AttributeContextAndData<T>(
+                typeContext,
+                containingTypes,
+                attributeData);
+
             return attributeContextAndData;
         }
     }
