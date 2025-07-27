@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2025-07-27
+
+### Fixed
+
+- Interfaces are implicitly abstract, so generated partial interfaces should not be explicitly marked as abstract.
+- Structs are implicitly sealed, so generated partial structs should not be explicitly marked as sealed.
+
 ## [1.0.1] - 2025-07-27
 
 ### Fixed
@@ -62,7 +69,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/datacute/IncrementalGeneratorExtensions/compare/1.0.1...develop
+[Unreleased]: https://github.com/datacute/IncrementalGeneratorExtensions/compare/1.0.2...develop
+[1.0.2]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/1.0.2
 [1.0.1]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/1.0.1
 [1.0.0]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/1.0.0
 [0.1.1-alpha]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/0.1.1-alpha

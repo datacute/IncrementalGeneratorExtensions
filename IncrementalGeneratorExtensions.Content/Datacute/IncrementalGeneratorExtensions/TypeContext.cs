@@ -209,7 +209,12 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// Gets the abstract modifier for this type context.
         /// </summary>
         /// <returns>A string representing the abstract modifier, such as "abstract " or an empty string.</returns>
-        public string GetAbstractModifier() => GetAbstractModifier(IsAbstract);
+        public string GetAbstractModifier()
+        {
+            if (TypeDeclarationKeyword == "interface")
+                return ""; // implicitly abstract
+            return GetAbstractModifier(IsAbstract);
+        }
         /// <summary>
         /// Gets the abstract modifier for a given abstract status.
         /// </summary>
@@ -221,13 +226,18 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// Gets the sealed modifier for this type context.
         /// </summary>
         /// <returns>A string representing the sealed modifier, such as "sealed " or an empty string.</returns>
-        public string GetSealedModifier() => GetSealedModifier(IsSealed);
+        public string GetSealedModifier()
+        {
+            if (TypeDeclarationKeyword == "struct" || TypeDeclarationKeyword == "record struct")
+                return ""; // implicitly sealed
+            return GetSealedModifier(IsSealed);
+        }
         /// <summary>
         /// Gets the sealed modifier for a given sealed status.
         /// </summary>
-        /// <param name="isSealead">The sealed status of the type.</param>
+        /// <param name="isSealed">The sealed status of the type.</param>
         /// <returns>A string representing the sealed modifier, such as "sealed " or an empty string.</returns>
-        public static string GetSealedModifier(bool isSealead) => isSealead ? "sealed " : "";
+        public static string GetSealedModifier(bool isSealed) => isSealed ? "sealed " : "";
 
         /// <summary>
         /// Gets the type declaration string for a type symbol, determining if it is a record, struct, or class.
