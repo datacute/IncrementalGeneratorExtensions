@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1-alpha] - 2025-07-27
+
 ### Changed
 
 - Added more information to TypeContext, and reduced AttributeContextAndData
@@ -48,7 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/datacute/IncrementalGeneratorExtensions/compare/0.1.0-alpha...develop
+[Unreleased]: https://github.com/datacute/IncrementalGeneratorExtensions/compare/0.1.1-alpha...develop
+[0.1.1-alpha]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/0.1.1-alpha
 [0.1.0-alpha]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/0.1.0-alpha
 [0.0.3-alpha]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/0.0.3-alpha
 [0.0.2-alpha]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/0.0.2-alpha
