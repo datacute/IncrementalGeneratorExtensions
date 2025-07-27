@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
@@ -23,11 +22,14 @@ namespace Datacute.IncrementalGeneratorExtensions
             // Retrieve all embedded resource names
             var resourceNames = assembly.GetManifestResourceNames();
 
-            // Only process .cs files
-            var csResources = resourceNames.Where(r => r.EndsWith(".cs", StringComparison.OrdinalIgnoreCase));
-
-            foreach (var resourceName in csResources)
+            foreach (var resourceName in resourceNames)
             {
+                // Only process .cs files
+                if (!resourceName.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
                 // Extract a suitable file name for the generated source
                 var fileName = Path.GetFileNameWithoutExtension(Path.GetFileName(resourceName)) + ".g.cs";
 

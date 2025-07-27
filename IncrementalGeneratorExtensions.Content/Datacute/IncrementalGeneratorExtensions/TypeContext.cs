@@ -5,7 +5,6 @@
 
 #if !DATACUTE_EXCLUDE_TYPECONTEXT && !DATACUTE_EXCLUDE_EQUATABLEIMMUTABLEARRAY
 using System;
-using System.Linq;
 using Microsoft.CodeAnalysis;
 
 namespace Datacute.IncrementalGeneratorExtensions
@@ -266,7 +265,7 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <param name="typeParameterNames">The names of the type parameters.</param>
         /// <returns>A string representing the type parameter list, such as "&lt;T&gt;" or an empty string if there are no type parameters.</returns>
         public static string GetTypeParameterList(EquatableImmutableArray<string> typeParameterNames) =>
-            typeParameterNames.Any()
+            typeParameterNames != null && typeParameterNames.Length > 0
                 ? $"<{string.Join(",", typeParameterNames)}>"
                 : string.Empty;
         
@@ -274,11 +273,18 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// Gets a name for the type context that includes the type parameters, suitable for use in hints or identifiers.
         /// </summary>
         /// <returns>A string representing the type name with type parameters, such as "MyClass_T1_T2" or just "MyClass" if there are no type parameters.</returns>
-        public string GetNameWithTypeParametersForHint()
+        public string GetNameWithTypeParametersForHint() => GetNameWithTypeParametersForHint(Name, TypeParameterNames);
+        /// <summary>
+        /// Gets a name for the type that includes the type parameters, suitable for use in hints or identifiers.
+        /// </summary>
+        /// <param name="name">The name of the type.</param>
+        /// <param name="typeParameterNames">The names of the type parameters.</param>
+        /// <returns>A string representing the type name with type parameters, such as "MyClass_T1_T2" or just "MyClass" if there are no type parameters.</returns>
+        public static string GetNameWithTypeParametersForHint(string name, EquatableImmutableArray<string> typeParameterNames)
         {
-            return TypeParameterNames != null && TypeParameterNames.Length > 0
-                ? $"{Name}_{string.Join("_", TypeParameterNames)}"
-                : Name;
+            return typeParameterNames != null && typeParameterNames.Length > 0
+                ? $"{name}_{string.Join("_", typeParameterNames)}"
+                : name;
         }
     }
 }
