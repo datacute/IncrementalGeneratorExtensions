@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2025-07-27
+
+### Fixed
+
+- Corrected the initial display of the docs in a consuming project
+
 ## [1.0.0] - 2025-07-27
 
 ### Added
@@ -56,7 +62,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/datacute/IncrementalGeneratorExtensions/compare/1.0.0...develop
+[Unreleased]: https://github.com/datacute/IncrementalGeneratorExtensions/compare/1.0.1...develop
+[1.0.1]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/1.0.1
 [1.0.0]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/1.0.0
 [0.1.1-alpha]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/0.1.1-alpha
 [0.1.0-alpha]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/0.1.0-alpha
