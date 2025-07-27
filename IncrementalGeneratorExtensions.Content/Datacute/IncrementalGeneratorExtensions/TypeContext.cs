@@ -10,80 +10,148 @@ using Microsoft.CodeAnalysis;
 
 namespace Datacute.IncrementalGeneratorExtensions
 {
+    /// <summary>
+    /// Represents the context of a type, including its name, static status, accessibility, declaration keyword, and type parameters.
+    /// </summary>
     public readonly struct TypeContext : IEquatable<TypeContext>
     {
+        /// <summary>
+        /// Gets the namespace of the type.
+        /// </summary>
+        public string Namespace { get; }
+        /// <summary>
+        /// Gets the name of the type.
+        /// </summary>
         public string Name { get; }
+        /// <summary>
+        /// Gets a value indicating whether the type is static.
+        /// </summary>
         public bool IsStatic { get; }
+        /// <summary>
+        /// Gets a value indicating whether the type is partial.
+        /// </summary>
+        public bool IsPartial { get; }
+        /// <summary>
+        /// Gets a value indicating whether the type is abstract.
+        /// </summary>
+        public bool IsAbstract { get; }
+        /// <summary>
+        /// Gets a value indicating whether the type is sealed.
+        /// </summary>
+        public bool IsSealed { get; }
+        /// <summary>
+        /// Gets the accessibility of the type.
+        /// </summary>
         public Accessibility Accessibility { get; }
-        public string RecordStructOrClass { get; }
+        /// <summary>
+        /// Gets the keyword used to declare the type (e.g., "class", "struct", "record").
+        /// </summary>
+        public string TypeDeclarationKeyword { get; }
+        /// <summary>
+        /// Gets the names of the type parameters for the type, if any.
+        /// </summary>
         public EquatableImmutableArray<string> TypeParameterNames { get; }
 
-        public TypeContext(string name, 
-            bool isStatic, 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="TypeContext"/> struct.
+        /// </summary>
+        /// <param name="namespace">The namespace of the type.</param>
+        /// <param name="name">The name of the type.</param>
+        /// <param name="isStatic">Indicates whether the type is static.</param>
+        /// <param name="isSealed">Indicates whether the type is sealed.</param>
+        /// <param name="isPartial">Indicates whether the type is partial.</param>
+        /// <param name="isAbstract">Indicates whether the type is abstract.</param>
+        /// <param name="accessibility">The accessibility of the type.</param>
+        /// <param name="typeDeclarationKeyword">The keyword used to declare the type (e.g., "class", "struct", "record").</param>
+        /// <param name="typeParameterNames">The names of the type parameters for the type, if any.</param>
+        public TypeContext(
+            string @namespace,
+            string name, 
+            bool isStatic,
+            bool isPartial,
+            bool isAbstract,
+            bool isSealed,
             Accessibility accessibility,
-            string recordStructOrClass,
+            string typeDeclarationKeyword,
             EquatableImmutableArray<string> typeParameterNames)
         {
+            Namespace = @namespace;
             Name = name;
             IsStatic = isStatic;
+            IsPartial = isPartial;
+            IsAbstract = isAbstract;
+            IsSealed = isSealed;
             Accessibility = accessibility;
-            RecordStructOrClass = recordStructOrClass;
+            TypeDeclarationKeyword = typeDeclarationKeyword;
             TypeParameterNames = typeParameterNames;
         }
 
+        /// <inheritdoc />
         public bool Equals(TypeContext other)
         {
-            return Name == other.Name && IsStatic == other.IsStatic && Accessibility == other.Accessibility && RecordStructOrClass == other.RecordStructOrClass && Equals(TypeParameterNames, other.TypeParameterNames);
+            return Name == other.Name && IsStatic == other.IsStatic && IsPartial == other.IsPartial && IsAbstract == other.IsAbstract && IsSealed == other.IsSealed && Namespace == other.Namespace && Accessibility == other.Accessibility && TypeDeclarationKeyword == other.TypeDeclarationKeyword && TypeParameterNames.Equals(other.TypeParameterNames);
         }
 
+        /// <inheritdoc />
         public override bool Equals(object obj)
         {
             return obj is TypeContext other && Equals(other);
         }
 
+        /// <inheritdoc />
         public override int GetHashCode()
         {
             unchecked
             {
                 var hashCode = (Name != null ? Name.GetHashCode() : 0);
                 hashCode = (hashCode * 397) ^ IsStatic.GetHashCode();
+                hashCode = (hashCode * 397) ^ IsPartial.GetHashCode();
+                hashCode = (hashCode * 397) ^ IsAbstract.GetHashCode();
+                hashCode = (hashCode * 397) ^ IsSealed.GetHashCode();
+                hashCode = (hashCode * 397) ^ (Namespace != null ? Namespace.GetHashCode() : 0);
                 hashCode = (hashCode * 397) ^ (int)Accessibility;
-                hashCode = (hashCode * 397) ^ (RecordStructOrClass != null ? RecordStructOrClass.GetHashCode() : 0);
-                hashCode = (hashCode * 397) ^ (TypeParameterNames != null ? TypeParameterNames.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ (TypeDeclarationKeyword != null ? TypeDeclarationKeyword.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ TypeParameterNames.GetHashCode();
                 return hashCode;
             }
         }
-        
-        public string PartialTypeDeclaration()
-        {
-            return string.Format(
-                "{0}{1}partial {2} {3}{4}",
-                GetAccessibilityModifier(),
-                GetStaticModifier(),
-                RecordStructOrClass,
-                Name,
-                GetGenericTypes()
-            );
-        }
-        
+
+        /// <summary>
+        /// Gets the type declaration string for this type context, including accessibility, static, abstract, sealed, and partial modifiers.
+        /// </summary>
+        /// <returns>A string representing the type declaration, such as "public static class MyClass&lt;T&gt;".</returns>
         public string TypeDeclaration()
         {
             return string.Format(
-                "{0}{1}{2} {3}{4}",
+                "{0}{1}{2}{3}{4}{5} {6}{7}",
                 GetAccessibilityModifier(),
+                GetSealedModifier(),
+                GetAbstractModifier(),
                 GetStaticModifier(),
-                RecordStructOrClass,
+                GetPartialModifier(),
+                TypeDeclarationKeyword,
                 Name,
-                GetGenericTypes()
-            );
+                GetTypeParameterList());
         }
-        
+
+        /// <summary>
+        /// Gets the accessibility modifier for this type context.
+        /// </summary>
+        /// <returns>A string representing the accessibility modifier, such as "public ", "private ", etc.</returns>
         public string GetAccessibilityModifier() => GetAccessibilityModifier(Accessibility);
 
+        /// <summary>
+        /// Gets the accessibility modifier for a given <see cref="Accessibility"/> value.
+        /// </summary>
+        /// <param name="accessibility">The accessibility of the type.</param>
+        /// <returns>A string representing the accessibility modifier, such as "public ", "private ", etc.</returns>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when the accessibility value is not recognized.</exception>
         public static string GetAccessibilityModifier(Accessibility accessibility)
         {
             switch (accessibility)
             {
+                case Accessibility.NotApplicable:
+                    return string.Empty;
                 case Accessibility.Private:
                     return "private ";
                 case Accessibility.ProtectedAndInternal:
@@ -101,25 +169,92 @@ namespace Datacute.IncrementalGeneratorExtensions
             }
         }
         
+        /// <summary>
+        /// Gets the static modifier for this type context.
+        /// </summary>
+        /// <returns>A string representing the static modifier, such as "static " or an empty string.</returns>
         public string GetStaticModifier() => GetStaticModifier(IsStatic);
+        /// <summary>
+        /// Gets the static modifier for a given static status.
+        /// </summary>
+        /// <param name="isStatic">The static status of the type.</param>
+        /// <returns>A string representing the static modifier, such as "static " or an empty string.</returns>
         public static string GetStaticModifier(bool isStatic) => isStatic ? "static " : "";
         
-        public static string GetRecordStructOrClass(ITypeSymbol typeSymbol)
+        /// <summary>
+        /// Gets the partial modifier for this type context.
+        /// </summary>
+        /// <returns>A string representing the partial modifier, such as "partial " or an empty string.</returns>
+        public string GetPartialModifier() => GetPartialModifier(IsPartial);
+        /// <summary>
+        /// Gets the partial modifier for a given partial status.
+        /// </summary>
+        /// <param name="isPartial">The partial status of the type.</param>
+        /// <returns>A string representing the partial modifier, such as "partial " or an empty string.</returns>
+        public static string GetPartialModifier(bool isPartial) => isPartial ? "partial " : "";
+
+        /// <summary>
+        /// Gets the abstract modifier for this type context.
+        /// </summary>
+        /// <returns>A string representing the abstract modifier, such as "abstract " or an empty string.</returns>
+        public string GetAbstractModifier() => GetAbstractModifier(IsAbstract);
+        /// <summary>
+        /// Gets the abstract modifier for a given abstract status.
+        /// </summary>
+        /// <param name="isAbstract">The abstract status of the type.</param>
+        /// <returns>A string representing the abstract modifier, such as "abstract " or an empty string.</returns>
+        public static string GetAbstractModifier(bool isAbstract) => isAbstract ? "abstract " : "";
+
+        /// <summary>
+        /// Gets the sealed modifier for this type context.
+        /// </summary>
+        /// <returns>>A string representing the sealed modifier, such as "sealed " or an empty string.</returns>
+        public string GetSealedModifier() => GetSealedModifier(IsSealed);
+        /// <summary>
+        /// Gets the sealed modifier for a given sealed status.
+        /// </summary>
+        /// <param name="isSealead">The sealed status of the type.</param>
+        /// <returns>A string representing the sealed modifier, such as "sealed " or an empty string.</returns>
+        public static string GetSealedModifier(bool isSealead) => isSealead ? "sealed " : "";
+
+        /// <summary>
+        /// Gets the type declaration string for a type symbol, determining if it is a record, struct, or class.
+        /// </summary>
+        /// <param name="typeSymbol">The type symbol to analyze.</param>
+        /// <returns>A string representing the type declaration, such as "record", "record struct", "class", or "struct".</returns>
+        /// <remarks>
+        /// Delegates and enums cannot be partial, so source generators cannot create a separate part for them.
+        /// </remarks>
+        public static string GetTypeDeclarationKeyword(ITypeSymbol typeSymbol)
         {
             if (typeSymbol.IsRecord && typeSymbol.IsReferenceType)
                 return "record";
             if (typeSymbol.IsRecord)
                 return "record struct";
+            if (typeSymbol.TypeKind == TypeKind.Interface)
+                return "interface";
+            if (typeSymbol.TypeKind == TypeKind.Enum)
+                return "enum";
+            if (typeSymbol.TypeKind == TypeKind.Delegate)
+                return "delegate";
             if (typeSymbol.IsReferenceType)
                 return "class";
             return "struct";
         }
 
-        public string GetGenericTypes() => GetGenericTypes(TypeParameterNames);
-
-        public static string GetGenericTypes(EquatableImmutableArray<string> genericTypes) =>
-            genericTypes.Any()
-                ? $"<{string.Join(",", genericTypes)}>"
+        /// <summary>
+        /// Gets the type parameter list for this type context, formatted as a string.
+        /// </summary>
+        /// <returns>A string representing the type parameter list, such as "&lt;T&gt;" or an empty string if there are no type parameters.</returns>
+        public string GetTypeParameterList() => GetTypeParameterList(TypeParameterNames);
+        /// <summary>
+        /// Gets the type parameter list for a given array of type parameter names, formatted as a string.
+        /// </summary>
+        /// <param name="typeParameterNames">The names of the type parameters.</param>
+        /// <returns>A string representing the type parameter list, such as "&lt;T&gt;" or an empty string if there are no type parameters.</returns>
+        public static string GetTypeParameterList(EquatableImmutableArray<string> typeParameterNames) =>
+            typeParameterNames.Any()
+                ? $"<{string.Join(",", typeParameterNames)}>"
                 : string.Empty;
     }
 }
