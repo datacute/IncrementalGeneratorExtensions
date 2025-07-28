@@ -25,11 +25,6 @@ Datacute.IncrementalGeneratorExtensions provides utility methods and classes to 
 - Provides a base class for incremental source generators that handles the boilerplate
   of generating a partial class (or similar) file for an instance of a marker attribute.
 
-## EmbeddedAttribute Support
-
-- Adds the `EmbeddedAttribute` definition for use in older .NET SDK versions
-- Includes the `AddEmbeddedAttributeDefinition` extension methods to simplify adding the attribute definition to your generator
-
 ## EquatableImmutableArray
 
 - Provides value-based equality comparison for immutable arrays

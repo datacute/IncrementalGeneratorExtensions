@@ -12,11 +12,6 @@ incremental source code generator.
 - Provides a base class for incremental source generators that handles the boilerplate
   of generating a partial class (or similar) file for an instance of a marker attribute.
 
-**EmbeddedAttribute Support**:
-    
-- Adds support for Microsoft's `EmbeddedAttribute` when running in older
-  SDK & Roslyn versions.
-
 **EquatableImmutableArray**:
 
 - Provides an `EquatableImmutableArray<T>` type which enables value-based
