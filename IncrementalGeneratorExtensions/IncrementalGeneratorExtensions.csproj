@@ -3,8 +3,7 @@
     <PropertyGroup>
         <TargetFramework>netstandard2.0</TargetFramework>
         <IsPackable>true</IsPackable>
-        <Nullable>enable</Nullable>
-        <LangVersion>latest</LangVersion>
+        <LangVersion>7.3</LangVersion>
 
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
         <IsRoslynComponent>true</IsRoslynComponent>
@@ -45,9 +44,6 @@
         <EmbeddedResource Include="..\IncrementalGeneratorExtensions.Content\Datacute\IncrementalGeneratorExtensions\*.cs"
                           Visible="false"
                           LogicalName="Datacute.IncrementalGeneratorExtensions.%(Filename)%(Extension)" />
-        <EmbeddedResource Include="..\IncrementalGeneratorExtensions.Content\Microsoft\CodeAnalysis\*.cs"
-                          Visible="false"
-                          LogicalName="Microsoft.CodeAnalysis.%(Filename)%(Extension)" />
     </ItemGroup>
 
     <!-- Packaging -->

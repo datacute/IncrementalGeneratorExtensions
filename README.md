@@ -34,9 +34,6 @@ to help with the development of incremental source generators in .NET.
 - [SourceTextGenerator Base Class](docs/SourceTextGeneratorBase%20README.md)
   - Provides a base class for incremental source generators that handles the boilerplate
     of generating a partial class (or similar) file for an instance of a marker attribute.
-- [EmbeddedAttribute Support](docs/EmbeddedAttribute%20README.md)
-  - Adds support for Microsoft's `EmbeddedAttribute` when running in older
-    SDK & Roslyn versions. This can help with the behaviour of marker attributes.
 - [EquatableImmutableArray](docs/EquatableImmutableArray%20README.md)
   - Provides an `EquatableImmutableArray<T>` type which enables value-based
     equality comparison of array contents, rather than the reference equality
@@ -86,9 +83,9 @@ The file can be hidden by adding a property to the `.csproj` file:
 Each included source file is enclosed in an `#if` directive:
 
 ```csharp
-#if !DATACUTE_EXCLUDE_EMBEDDEDATTRIBUTE
+#if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE
 
-// ... rest of EmbeddedAttribute file ...
+// ... rest of LightweightTrace.cs file ...
 
 #endif
 ```
@@ -98,7 +95,7 @@ define the relevant constant in the consuming project's `.csproj` file:
 
 ```XML
 <PropertyGroup>
-  <DefineConstants>$(DefineConstants);DATACUTE_EXCLUDE_EMBEDDEDATTRIBUTE</DefineConstants>
+  <DefineConstants>$(DefineConstants);DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE</DefineConstants>
 </PropertyGroup>
 ```
 

@@ -24,7 +24,6 @@ namespace Datacute.IncrementalGeneratorExtensions
         RegisterImplementationSourceOutput = 4,
 
         // PostInitializationContext Methods
-        PostInitializationContextAddEmbeddedAttributeDefinition = 5,
         PostInitializationContextAddSource = 6,
 
         // SourceProductionContext Methods

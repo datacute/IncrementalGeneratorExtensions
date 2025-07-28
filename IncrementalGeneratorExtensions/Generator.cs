@@ -33,15 +33,19 @@ namespace Datacute.IncrementalGeneratorExtensions
                 // Extract a suitable file name for the generated source
                 var fileName = Path.GetFileNameWithoutExtension(Path.GetFileName(resourceName)) + ".g.cs";
 
-                using var stream = assembly.GetManifestResourceStream(resourceName);
-                if (stream == null) continue;
+                using (var stream = assembly.GetManifestResourceStream(resourceName))
+                {
+                    if (stream == null) continue;
 
-                using var reader = new StreamReader(stream);
-                var sourceCode = reader.ReadToEnd();
-                var sourceText = SourceText.From(sourceCode, Encoding.UTF8);
+                    using (var reader = new StreamReader(stream))
+                    {
+                        var sourceCode = reader.ReadToEnd();
+                        var sourceText = SourceText.From(sourceCode, Encoding.UTF8);
 
-                // Add the source to the compilation
-                context.AddSource(fileName, sourceText);
+                        // Add the source to the compilation
+                        context.AddSource(fileName, sourceText);
+                    }
+                }
             }
         }
     }

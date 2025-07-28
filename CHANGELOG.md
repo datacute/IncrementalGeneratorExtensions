@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- EmbeddedAttribute support: it wasn't working as intended, and it just caused problems.
+
 ## [1.0.2] - 2025-07-27
 
 ### Fixed

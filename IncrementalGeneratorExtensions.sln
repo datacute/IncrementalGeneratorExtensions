@@ -18,7 +18,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IncrementalGeneratorExtensi
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{9AB420CB-0960-4573-8622-DA3AD77A8849}"
 	ProjectSection(SolutionItems) = preProject
-		docs\EmbeddedAttribute README.md = docs\EmbeddedAttribute README.md
 		docs\EquatableImmutableArray README.md = docs\EquatableImmutableArray README.md
 		docs\LightweightTrace README.md = docs\LightweightTrace README.md
 		docs\AttributeContextAndData README.md = docs\AttributeContextAndData README.md
