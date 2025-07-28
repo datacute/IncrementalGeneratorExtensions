@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2025-07-28
+
 ### Removed
 
 - EmbeddedAttribute support: it wasn't working as intended, and it just caused problems.
@@ -73,7 +75,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/datacute/IncrementalGeneratorExtensions/compare/1.0.2...develop
+[Unreleased]: https://github.com/datacute/IncrementalGeneratorExtensions/compare/1.0.3...develop
+[1.0.3]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/1.0.3
 [1.0.2]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/1.0.2
 [1.0.1]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/1.0.1
 [1.0.0]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/1.0.0
