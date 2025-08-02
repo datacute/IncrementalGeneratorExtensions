@@ -35,9 +35,9 @@ namespace Datacute.IncrementalGeneratorExtensions
             { (int)GeneratorStage.Cancellation, "Operation Cancelled" },
 
             // Output registration stages
-            { (int)GeneratorStage.RegisterPostInitializationOutput, "Register Post Initialization Output" },
-            { (int)GeneratorStage.RegisterSourceOutput, "Register Source Output" },
-            { (int)GeneratorStage.RegisterImplementationSourceOutput, "Register Implementation Source Output" },
+            { (int)GeneratorStage.RegisterPostInitializationOutput, "Register Post Initialization Output - callback called" },
+            { (int)GeneratorStage.RegisterSourceOutput, "Register Source Output - action called" },
+            { (int)GeneratorStage.RegisterImplementationSourceOutput, "Register Implementation Source Output - action called" },
 
             // PostInitializationContext Methods
             { (int)GeneratorStage.PostInitializationContextAddEmbeddedAttributeDefinition, "Post Initialization Context Add Embedded Attribute Definition" },
