@@ -40,6 +40,7 @@ namespace Datacute.IncrementalGeneratorExtensions
             { (int)GeneratorStage.RegisterImplementationSourceOutput, "Register Implementation Source Output" },
 
             // PostInitializationContext Methods
+            { (int)GeneratorStage.PostInitializationContextAddEmbeddedAttributeDefinition, "Post Initialization Context Add Embedded Attribute Definition" },
             { (int)GeneratorStage.PostInitializationContextAddSource, "Post Initialization Context Add Source" },
 
             // SourceProductionContext Methods
