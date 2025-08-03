@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.4] - 2025-08-03
+
+### Fixed
+
+- Corrected the package release notes to include the repository URL.
+- Restored AddEmbeddedAttributeDefinition Stage
+
+### Changed
+
+- Improved the EquatableImmutableArray instance cache (for most cases)
+
+### Added
+
+- Include Generator name and version in the "auto-generated" source code comment.
+
 ## [1.0.3] - 2025-07-28
 
 ### Removed
@@ -75,7 +90,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/datacute/IncrementalGeneratorExtensions/compare/1.0.3...develop
+[Unreleased]: https://github.com/datacute/IncrementalGeneratorExtensions/compare/1.0.4...develop
+[1.0.4]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/1.0.4
 [1.0.3]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/1.0.3
 [1.0.2]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/1.0.2
 [1.0.1]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/1.0.1
