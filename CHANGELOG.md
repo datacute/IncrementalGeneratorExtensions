@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Corrected the package release notes to include the repository URL.
+- Restored AddEmbeddedAttributeDefinition Stage
+
+### Changed
+
+- Improved the EquatableImmutableArray instance cache (for most cases)
+
+### Added
+
+- Include Generator name and version in the "auto-generated" source code comment.
+
 ## [1.0.3] - 2025-07-28
 
 ### Removed
