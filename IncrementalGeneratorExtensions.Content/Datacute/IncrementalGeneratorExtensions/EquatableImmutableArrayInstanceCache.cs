@@ -78,7 +78,7 @@ namespace Datacute.IncrementalGeneratorExtensions
 #if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACEEXTENSIONS && !DATACUTE_EXCLUDE_GENERATORSTAGE
                     cancellationToken.ThrowIfCancellationRequested(0);
 #else
-        cancellationToken.ThrowIfCancellationRequested();
+                    cancellationToken.ThrowIfCancellationRequested();
 #endif
                     if (candidateList[i].TryGetTarget(out var existing))
                     {

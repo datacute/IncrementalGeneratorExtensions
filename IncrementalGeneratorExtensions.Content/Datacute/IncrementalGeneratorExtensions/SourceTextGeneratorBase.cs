@@ -25,7 +25,7 @@ namespace Datacute.IncrementalGeneratorExtensions
         {
             var assemblyName = typeof(SourceTextGeneratorBase<T>).Assembly.GetName();
             _assemblyName = assemblyName.Name;
-            _version = assemblyName.Version != null ? assemblyName.Version.ToString(fieldCount: 3) : null;
+            _version = assemblyName.Version != null ? assemblyName.Version.ToString(fieldCount: 3) : "unknown";
         }
         
         /// <summary>
