@@ -73,6 +73,10 @@ making it easier to debug and understand the flow of your generator.
   _buffer.AppendDiagnosticsComment(GeneratorStageDescriptions.GeneratorStageNameMap);
   ```
 
+Composite key encoding (overview):
+- ID and optional value are packed into a single int using a stride and a flag for value-name mapping.
+- Use CompositeValueShift and MapValueFlag to understand the packing; EncodeKey/DecodeKey helpers are available.
+
 
 
 # Additional Resources
