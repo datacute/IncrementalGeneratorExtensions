@@ -5,13 +5,14 @@
 #if DATACUTE_EXCLUDE_EQUATABLEIMMUTABLEARRAY
 #error AttributeContextAndData requires EquatableImmutableArray (remove DATACUTE_EXCLUDE_EQUATABLEIMMUTABLEARRAY or also exclude DATACUTE_EXCLUDE_ATTRIBUTECONTEXTANDDATA)
 #endif
-using System;
-using System.Collections.Immutable;
-using System.Text;
-using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Text;
+using System.Threading;
 
 namespace Datacute.IncrementalGeneratorExtensions
 {
@@ -79,16 +80,15 @@ namespace Datacute.IncrementalGeneratorExtensions
         }
 
         /// <inheritdoc />
-        public bool Equals(AttributeContextAndData<T> other)
-        {
-            return Context.Equals(other.Context) && Equals(ContainingTypes, other.ContainingTypes) && AttributeData.Equals(other.AttributeData);
-        }
+        public bool Equals(AttributeContextAndData<T> other) => 
+            Context.Equals(other.Context) && 
+            Equals(ContainingTypes, other.ContainingTypes) &&
+            EqualityComparer<T>.Default.Equals(AttributeData, other.AttributeData) &&
+            IsInFileScopedNamespace == other.IsInFileScopedNamespace;
 
         /// <inheritdoc />
-        public override bool Equals(object obj)
-        {
-            return obj is AttributeContextAndData<T> other && Equals(other);
-        }
+        public override bool Equals(object obj) => 
+            obj is AttributeContextAndData<T> other && Equals(other);
 
         /// <inheritdoc />
         public override int GetHashCode()
@@ -96,8 +96,9 @@ namespace Datacute.IncrementalGeneratorExtensions
             unchecked
             {
                 var hashCode = Context.GetHashCode();
-                hashCode = (hashCode * 397) ^ (ContainingTypes != null ? ContainingTypes.GetHashCode() : 0);
-                hashCode = (hashCode * 397) ^ (AttributeData != null ? AttributeData.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ ContainingTypes.GetHashCode();
+                hashCode = (hashCode * 397) ^ EqualityComparer<T>.Default.GetHashCode(AttributeData);
+                hashCode = (hashCode * 397) ^ (IsInFileScopedNamespace ? 1 : 0);
                 return hashCode;
             }
         }
@@ -155,11 +156,11 @@ namespace Datacute.IncrementalGeneratorExtensions
             LightweightTrace.IncrementCount(GeneratorStage.ForAttributeWithMetadataNamePredicate);
 #endif
             // We are only interested in partial type declarations
-            var typeDeclaration = syntaxNode as TypeDeclarationSyntax;
-            if (typeDeclaration == null || !typeDeclaration.Modifiers.Any(SyntaxKind.PartialKeyword))
-            {
-                return false;
-            }
+            if (!(syntaxNode is TypeDeclarationSyntax typeDeclaration))
+                return false; // Not a type declaration
+
+            if (!typeDeclaration.Modifiers.Any(SyntaxKind.PartialKeyword))
+                return false; // Must be partial
 
             // Now, ensure all containing types are also partial.
             // This is necessary to be able to generate code for partial types correctly.
@@ -213,19 +214,8 @@ namespace Datacute.IncrementalGeneratorExtensions
             var attributeTargetSymbol = (ITypeSymbol)generatorAttributeSyntaxContext.TargetSymbol;
             var typeDeclaration = (TypeDeclarationSyntax)generatorAttributeSyntaxContext.TargetNode;
 
-            var isInFileScopedNamespace = false;
-            if (typeDeclaration.SyntaxTree.GetRoot(token) is CompilationUnitSyntax compilationUnit)
-            {
-                foreach (var member in compilationUnit.Members)
-                {
-                    if (member.GetType().Name == "FileScopedNamespaceDeclarationSyntax")
-                    {
-                        isInFileScopedNamespace = true;
-                        break;
-                    }
-                }
-            }
-            
+            var isInFileScopedNamespace = HasFileScopedNamespace(typeDeclaration.SyntaxTree, token);
+
             var isNullableContextEnabled = GetIsNullableContextEnabled(generatorAttributeSyntaxContext.SemanticModel, typeDeclaration.SpanStart);
 
             EquatableImmutableArray<string> typeParameterNames;
@@ -241,16 +231,7 @@ namespace Datacute.IncrementalGeneratorExtensions
                 typeParameterNames = EquatableImmutableArray<string>.Empty;
             }
 
-            var typeContext = new TypeContext(
-                TypeContext.GetNamespaceDisplayString(attributeTargetSymbol.ContainingNamespace),
-                attributeTargetSymbol.Name,
-                attributeTargetSymbol.IsStatic,
-                isPartial: true, // Known to be true because of the predicate
-                attributeTargetSymbol.IsAbstract,
-                attributeTargetSymbol.IsSealed,
-                attributeTargetSymbol.DeclaredAccessibility,
-                TypeContext.GetTypeDeclarationKeyword(attributeTargetSymbol),
-                typeParameterNames);
+            var typeContext = CreateTypeContext(attributeTargetSymbol, isPartial: true, typeParameterNames);
 
             // Parse parent classes from symbol's containing types
             var parentClassCount = 0;
@@ -275,18 +256,9 @@ namespace Datacute.IncrementalGeneratorExtensions
                         : EquatableImmutableArray<string>.Empty;
 
                     // The predicate has already confirmed that this type is partial.
-                    var containingTypeIsPartial = true;
-
-                    containingTypesImmutableArrayBuilder.Insert(0, new TypeContext(
-                        TypeContext.GetNamespaceDisplayString(containingType.ContainingNamespace),
-                        containingType.Name, 
-                        containingType.IsStatic,
-                        containingTypeIsPartial,
-                        containingType.IsAbstract,
-                        containingType.IsSealed,
-                        containingType.DeclaredAccessibility,
-                        TypeContext.GetTypeDeclarationKeyword(containingType),
-                        containingTypeTypeParameterNames));
+                    const bool containingTypeIsPartial = true;
+                    var containingTypeContext = CreateTypeContext(containingType, containingTypeIsPartial, containingTypeTypeParameterNames);
+                    containingTypesImmutableArrayBuilder.Insert(0, containingTypeContext);
                     containingType = containingType.ContainingType;
                 }
 
@@ -297,19 +269,48 @@ namespace Datacute.IncrementalGeneratorExtensions
                 containingTypes = EquatableImmutableArray<TypeContext>.Empty;
             }
 
-            var attributeContextAndData = new AttributeContextAndData<T>(
+            return new AttributeContextAndData<T>(
                 typeContext,
                 containingTypes,
                 attributeData,
                 isInFileScopedNamespace,
                 isNullableContextEnabled);
-
-            return attributeContextAndData;
         }
-        
-        
+        private static TypeContext CreateTypeContext(
+            ITypeSymbol symbol,
+            bool isPartial,
+            EquatableImmutableArray<string> typeParameterNames)
+        {
+            return new TypeContext(
+                TypeContext.GetNamespaceDisplayString(symbol.ContainingNamespace),
+                symbol.Name,
+                symbol.IsStatic,
+                isPartial,
+                symbol.IsAbstract,
+                symbol.IsSealed,
+                symbol.DeclaredAccessibility,
+                TypeContext.GetTypeDeclarationKeyword(symbol),
+                typeParameterNames);
+        }
+
+        private static bool HasFileScopedNamespace(SyntaxTree syntaxTree, CancellationToken token)
+        {
+            if (!(syntaxTree.GetRoot(token) is CompilationUnitSyntax root))
+                return false;
+
+            foreach (var member in root.Members)
+            {
+                if (member.GetType().Name == "FileScopedNamespaceDeclarationSyntax")
+                    return true;
+            }
+
+            return false;
+        }
+
         // This delegate is initialized to point to the bootstrap method. 
         // After the first run, it will point to the final, efficient implementation.
+        // ReSharper disable once StaticMemberInGenericType There's typically only one instance.
+        // ReSharper disable once InconsistentNaming purposely named like a method
         private static Func<SemanticModel, int, bool> GetIsNullableContextEnabled = BootstrapGetIsNullableContextEnabled;
 
         private static bool BootstrapGetIsNullableContextEnabled(SemanticModel semanticModel, int position)

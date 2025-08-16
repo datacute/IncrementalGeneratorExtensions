@@ -19,15 +19,27 @@ namespace Datacute.IncrementalGeneratorExtensions
         private const int Capacity = 1024;
 
         /// <summary>
-        /// The stride used to encode a composite key where <c>key = id + (value * CompositeValueShift)</c>.
-        /// Exposed to clarify how counters/events pack both an ID and a value into a single <see cref="int"/>.
+        /// Size of the contiguous ID range (also the multiplier for packing values):
+        /// compositeKey = id + (value * CompositeValueShift) (+ MapValueFlag).
+        /// id must be &lt; CompositeValueShift; value is shifted by this amount when encoded.
         /// </summary>
-        public const int CompositeValueShift = 1 << 10; // 1024 distinct IDs per value bucket
+        public const int CompositeValueShift = 1 << ValueShift; // 1024 id range (value bucket multiplier)
+
         /// <summary>
         /// A flag bit used in composite keys to indicate that the encoded value should be mapped via <c>eventNameMap</c>.
         /// This lets values represent enum-like categories instead of plain numbers when formatting output.
         /// </summary>
         public const int MapValueFlag = 1 << 28;
+
+        // Bit layout (little endian within int):
+        // bits 0..9   : id        (0..1023)
+        // bits 10..27 : value     (0..(2^18 - 1))
+        // bit  28     : map flag  (categorical value lookup)
+        // bits 29..31 : currently unused (reserved)
+        private const int IdMask = CompositeValueShift - 1; // 0x3FF mask for id bits (bits 0..ValueShift-1)
+        private const int ValueShift = 10;                  // Number of bits reserved for the id (0..(2^ValueShift - 1))
+        private const int ValueBits = 18;                   // Number of bits reserved for the value component (bits ValueShift .. ValueShift+ValueBits-1)
+        private const int ValueMask = ((1 << ValueBits) - 1) << ValueShift; // covers bits 10..27
 
         private static readonly DateTime StartTime = DateTime.UtcNow;
         private static readonly Stopwatch Stopwatch = Stopwatch.StartNew();
@@ -41,6 +53,7 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <param name="eventId">The ID of the event to log.</param>
         /// <typeparam name="TEnum">The type of the event ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
         public static void Add<TEnum>(TEnum eventId) where TEnum : Enum => Add(Convert.ToInt32(eventId));
+
         /// <summary>
         /// Adds an event to the trace log with the specified event ID and numeric value.
         /// </summary>
@@ -48,6 +61,7 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <param name="value">The value associated with the event, which can be used for additional context or categorization.</param>
         /// <typeparam name="TEnum">The type of the event ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
         public static void Add<TEnum>(TEnum eventId, int value) where TEnum : Enum => Add(Convert.ToInt32(eventId), value);
+
         /// <summary>
         /// Adds an event to the trace log with the specified event ID and enum value.
         /// </summary>
@@ -56,6 +70,7 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <typeparam name="TEnumKey">The type of the event ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
         /// <typeparam name="TEnumValue">The type of the value, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
         public static void Add<TEnumKey,TEnumValue>(TEnumKey eventId, TEnumValue value) where TEnumKey : Enum where TEnumValue : Enum => Add(Convert.ToInt32(eventId), Convert.ToInt32(value), true);
+
         /// <summary>
         /// Adds an event to the trace log with the specified numeric event ID and value.
         /// </summary>
@@ -63,6 +78,7 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <param name="value">The value associated with the event, which can be used for additional context or categorization.</param>
         /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
         public static void Add(int eventId, int value, bool mapValue = false) => Add(EncodeKey(eventId, value, mapValue));
+
         /// <summary>
         /// Adds an event to the trace log with the specified numeric event ID.
         /// </summary>
@@ -89,6 +105,7 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <param name="eventId">The ID of the event to log.</param>
         /// <typeparam name="TEnum">The type of the event ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
         public static void MethodEntry<TEnum>(TEnum eventId) where TEnum : Enum => Add(Convert.ToInt32(eventId), Convert.ToInt32(GeneratorStage.MethodEntry), true);
+
         /// <summary>
         /// Adds a method exit event to the trace log with the specified event ID.
         /// </summary>
@@ -116,7 +133,7 @@ namespace Datacute.IncrementalGeneratorExtensions
                 var (timestamp, eventId) = Events[index];
                 if (timestamp > 0)
                 {
-                    var textAndValue = GetTextAndValue(eventNameMap, eventId);
+                    var textAndValue = FormatEventKey(eventNameMap, eventId);
                     stringBuilder.AppendFormat("{0:o} [{1:000}] {2}",
                             StartTime.AddTicks(timestamp),
                             eventId % CompositeValueShift,
@@ -134,6 +151,7 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <param name="counterId">The ID of the counter to increment.</param>
         /// <typeparam name="TEnum">The type of the counter ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
         public static void IncrementCount<TEnum>(TEnum counterId) where TEnum : Enum => IncrementCount(Convert.ToInt32(counterId));
+
         /// <summary>
         /// Increments the value of a given key[value] combination by 1.
         /// </summary>
@@ -155,6 +173,7 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <param name="counterId">The ID of the counter to decrement.</param>
         /// <typeparam name="TEnum">The type of the counter ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
         public static void DecrementCount<TEnum>(TEnum counterId) where TEnum : Enum => DecrementCount(Convert.ToInt32(counterId));
+
         /// <summary>
         /// Decrements the value of a given key[value] combination by 1.
         /// </summary>
@@ -169,6 +188,7 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// </summary>
         /// <param name="counterId">The ID of the counter to increment.</param>
         public static void IncrementCount(int counterId) => Counters.AddOrUpdate(counterId, 1, (_, count) => count + 1);
+
         /// <summary>
         /// Increments the value of a given key[value] combination by 1.
         /// </summary>
@@ -182,6 +202,7 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// </summary>
         /// <param name="counterId">The ID of the counter to increment.</param>
         public static void DecrementCount(int counterId) => Counters.AddOrUpdate(counterId, -1, (_, count) => count - 1);
+
         /// <summary>
         /// Decrements the value of a given key[value] combination by 1.
         /// </summary>
@@ -209,7 +230,7 @@ namespace Datacute.IncrementalGeneratorExtensions
                 int counterId = kvp.Key;
                 long count = kvp.Value;
 
-                var textAndValue = GetTextAndValue(eventNameMap, counterId);
+                var textAndValue = FormatEventKey(eventNameMap, counterId);
                 stringBuilder.AppendFormat(
                     "[{0:000}] {1}: {2}", 
                     counterId % CompositeValueShift, textAndValue, count)
@@ -224,7 +245,8 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <param name="id">The base ID (0..CompositeValueShift-1).</param>
         /// <param name="value">The associated value bucket or enum ordinal.</param>
         /// <param name="mapValue">True to mark the value as mapped (name lookup) instead of numeric.</param>
-        public static int EncodeKey(int id, int value, bool mapValue = false) => id + (value * CompositeValueShift) + (mapValue ? MapValueFlag : 0);
+        public static int EncodeKey(int id, int value, bool mapValue = false) => 
+            id + (value * CompositeValueShift) + (mapValue ? MapValueFlag : 0);
 
         /// <summary>
         /// Decodes a composite key into its ID, value, and mapped-value flag.
@@ -236,45 +258,41 @@ namespace Datacute.IncrementalGeneratorExtensions
         public static void DecodeKey(int key, out int id, out int value, out bool isMappedValue)
         {
             isMappedValue = (key & MapValueFlag) != 0;
-            var unflagged = key & ~MapValueFlag;
-            id = unflagged % CompositeValueShift;
-            value = unflagged / CompositeValueShift;
+            id = key & IdMask;
+            value = (key & ValueMask) >> ValueShift;
         }
 
-        private static string GetTextAndValue(Dictionary<int, string> eventNameMap, int key)
+        private static string FormatEventKey(Dictionary<int, string> eventNameMap, int key)
         {
-            int id = key % CompositeValueShift;
-            int value = key / CompositeValueShift;
+            DecodeKey(key, out var id, out var value, out var mapped);
 
-            if ((key & MapValueFlag) != 0)
-            {
-                value = (key & ~MapValueFlag) / CompositeValueShift;
-            }
-
-            string text  = null;
+            string idText = null;
             if (eventNameMap != null)
             {
-                eventNameMap.TryGetValue(id, out text);
+                eventNameMap.TryGetValue(id, out idText);
             }
-            if (text == null)
+            if (idText == null)
             {
-                text = string.Empty;
+                idText = string.Empty;
+            }
+
+            if (!mapped && value == 0 && key < CompositeValueShift)
+            {
+                return idText;
             }
 
             string valueText = null;
-            if (key >= CompositeValueShift)
+            if (mapped && eventNameMap != null)
             {
-                if (eventNameMap != null && (key & MapValueFlag) != 0)
-                {
-                    eventNameMap.TryGetValue(value, out valueText);
-                }
-                if (valueText == null)
-                {
-                    valueText = $"{value}";
-                }
+                eventNameMap.TryGetValue(value, out valueText);
             }
 
-            return (key >= CompositeValueShift) ? $"{text} ({valueText})" : text;
+            if (valueText == null)
+            {
+                valueText = value.ToString();
+            }
+
+            return idText.Length == 0 ? valueText : $"{idText} ({valueText})";
         }
 
         /// <summary>
