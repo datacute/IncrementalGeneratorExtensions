@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.6] - 2025-08-16
+
+### Added
+
+- Lots more documentation.
+
+### Changed
+
+- Include version in auto-generated comments added by this generator.
+
 ## [1.0.5] - 2025-08-03
 
 ### Fixed
@@ -96,7 +106,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/datacute/IncrementalGeneratorExtensions/compare/1.0.5...develop
+[Unreleased]: https://github.com/datacute/IncrementalGeneratorExtensions/compare/1.0.6...develop
+[1.0.6]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/1.0.6
 [1.0.5]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/1.0.5
 [1.0.4]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/1.0.4
 [1.0.3]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/1.0.3
