@@ -2,16 +2,53 @@
 
 ---
 # IndentingLineAppender.cs and TabIndentingLineAppender.cs
-***todo - expand on copied points below***
+`IndentingLineAppender` is a focused helper for generating structured / indented source without littering your code with manual space concatenations. It wraps one `StringBuilder`, maintains an `IndentLevel`, and offers:
+* Block helpers: `AppendStartBlock()` / `AppendEndBlock()` (writes delimiters and adjusts indent).
+* Multi-line helpers: `AppendLines()` and `AppendFormatLines()` (each line indented, blank lines preserved).
+* Fluent chaining so familiar `StringBuilder` patterns are usable.
+* The `TabIndentingLineAppender` subclass is identical except it uses a single tab character per indentation level.
 
-- Provides a customisable `IndentingLineAppender` class that wraps a `StringBuilder` and adds
-  auto-indentation support, making it easier to generate indented source code.
-- Includes a `TabIndentingLineAppender` customisation that uses tabs for indentation.
 
+## Example Usage
+```csharp
+var a = new IndentingLineAppender();
+a.AppendLine("namespace Demo")
+ .AppendStartBlock()           // {
+ .AppendLine("internal static class C")
+ .AppendStartBlock()           // {
+ .AppendLine("public static void M() {}");
+a.AppendEndBlock()             // }
+ .AppendEndBlock();            // }
 
-# Example Usage
+string code = a.ToString();
 
-_**todo**_
+// Using tabs (identical API, different indentation style):
+var tabs = new TabIndentingLineAppender();
+tabs.AppendLine("class T")
+  .AppendStartBlock()
+  .AppendLine("int x;")
+  .AppendEndBlock();
+```
+
+Result (`code` variable) roughly:
+```text
+namespace Demo
+{
+  internal static class C
+  {
+    public static void M() {}
+  }
+}
+```
+
+## Key APIs
+* `AppendLine(string)` – append one line with current indent.
+* `AppendStartBlock()` / `AppendEndBlock()` – write block delimiters and adjust `IndentLevel` automatically.
+* `AppendLines(string)` – append multi-line content (each non-empty line prefixed with current indent).
+* `AppendFormatLines(format, params object[])` – format then treat the result as multi-line.
+* `IndentLevel` (get/set) – manual control (normally let block helpers change it).
+* `Clear()` – reuse the same instance for multiple emission passes.
+* `Direct` – access the underlying `StringBuilder` for an uncommon operation.
 
 # Excluding the source files
 
@@ -28,8 +65,11 @@ define the relevant constant in the consuming project's `.csproj` file:
 The files will still appear in the project, but will not add anything to the compilation.
 
 ### Note: Dependency
-`TabIndentingLineAppender.cs` depends on `IndentingLineAppender.cs` and will **not work** when it
-is excluded.
+Direct:
+* `TabIndentingLineAppender.cs` -> `IndentingLineAppender.cs`
+
+Behavior:
+* `TabIndentingLineAppender.cs` emits a fail‑fast `#error` if the base is excluded.
 
 ---
 <small>

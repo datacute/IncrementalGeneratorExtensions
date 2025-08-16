@@ -1,43 +1,70 @@
-Provides extension methods and helper classes designed to
-simplify the development of .NET Incremental Source Generators.
+Fast-start helper set for building .NET incremental source generators: drop-in source files (added to your compilation) that cover attribute data collection, value-equality wrappers, structured emission, indentation, and lightweight tracing.
 
-It adds a directory of source files directly to your project,
-included in your build, making it easier to package your
-incremental source code generator.
+## Features
+* SourceTextGenerator base class
+* EquatableImmutableArray
+* Attribute Context and Data (with TypeContext)
+* IndentingLineAppender (and tab variant)
+* LightweightTrace & GeneratorStage enum
 
-## Features Included
+More details, examples and exclusion symbols: https://github.com/datacute/IncrementalGeneratorExtensions
 
-**SourceTextGenerator Base Class**
+## Quick Example (minimal, trimmed)
+```csharp
+[Generator]
+public sealed class DemoGenerator : IIncrementalGenerator
+{
+  public void Initialize(IncrementalGeneratorInitializationContext context)
+  {
+    var usages = context.SelectAttributeContexts(
+      "MyNamespace.GenerateSomethingAttribute", 
+      GenerateSomethingData.Collect);
 
-- Provides a base class for incremental source generators that handles the boilerplate
-  of generating a partial class (or similar) file for an instance of a marker attribute.
+    context.RegisterSourceOutput(usages, static (spc, usage) =>
+    {
+      var gen = new GenerateSomethingSource(in usage, in spc.CancellationToken);
+      spc.AddSource(usage.CreateHintName("GenerateSomething"), gen.GetSourceText());
+    });
+  }
+}
+```
 
-**EquatableImmutableArray**:
+### With a simple attribute:
+```csharp
+[AttributeUsage(AttributeTargets.Class)]
+public sealed class GenerateSomethingAttribute : Attribute
+{
+  public GenerateSomethingAttribute(string name) => Name = name;
+  public string Name { get; }
+}
+```
 
-- Provides an `EquatableImmutableArray<T>` type which enables value-based
-  equality comparison of array contents, rather than the reference equality
-  of the array instance itself, which is what `ImmutableArray<T>` uses.
-- Incremental source generators produce new `ImmutableArray<T>` outputs within their
-  pipelines, and by converting these to `EquatableImmutableArray<T>` instances,
-  the pipeline stages can be correctly identified as having no changes in their
-  output.
+### Collecting attribute constructor arguments:
+```csharp
+sealed class GenerateSomethingData : IEquatable<GenerateSomethingData>
+{
+  public GenerateSomethingData(string name) => Name = name;
+  public string Name { get; }
 
-**Attribute Context and Data**
+  // Equals and GetHashCode not shown to keep the example brief
 
-- Adds types and extension methods to simplify collecting data about each use of a marker attribute.
-- `TypeContext` captures the type information.
-- `AttributeContextAndData` captures the attribute data, which includes the `TypeContext` of the type marked by 
-  the attribute, and the `TypeContext` of each of the containing types.
-- `AttributeContextAndData` has a generic type argument which is your type that holds
-  information collected for the attribute, such as its positional and named arguments.
+  public static GenerateSomethingData Collect(GeneratorAttributeSyntaxContext c)
+    => new GenerateSomethingData((string)c.Attributes[0].ConstructorArguments[0].Value);
+}
+```
 
-**Indented StringBuilder**:
-- Provides a customisable `IndentingLineAppender` class that wraps a `StringBuilder` and adds
-  auto-indentation support, making it easier to generate indented source code.
+### Using the simplest source generator:
+```csharp
+sealed class GenerateSomethingSource : SourceTextGeneratorBase<GenerateSomethingData>
+{
+  readonly GenerateSomethingData _data;
 
-**Lightweight Tracing**:
+  public GenerateSomethingSource(
+    in AttributeContextAndData<GenerateSomethingData> usage, 
+    in CancellationToken token)
+    : base(in usage, in token) => _data = usage.AttributeData;
 
-- A simple tracing mechanism that integrates with the incremental source generator's
-  `WithTrackingName` API, making it easier to diagnose and debug your generator's execution.
-- Usage counters and timing logs can be included as a comment in the generated source.
-- Provides an enum `GeneratorStage` with descriptions for common stages of the generator pipeline.
+  protected override void AppendCustomMembers()
+    => Buffer.AppendLine($"public static string GeneratedName => \"{_data.Name}\";");
+}
+```

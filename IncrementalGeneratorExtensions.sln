@@ -10,6 +10,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		versionsuffix.ci.props = versionsuffix.ci.props
 		versionsuffix.release.props = versionsuffix.release.props
 		PACKAGE_README.md = PACKAGE_README.md
+		.github\copilot-instructions.md = .github\copilot-instructions.md
+		global.json = global.json
+		.junie\guidelines.md = .junie\guidelines.md
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IncrementalGeneratorExtensions", "IncrementalGeneratorExtensions\IncrementalGeneratorExtensions.csproj", "{2DDE40FD-08D6-469C-948A-2AED9E0B2B49}"

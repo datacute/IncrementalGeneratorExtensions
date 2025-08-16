@@ -2,12 +2,12 @@
 
 [![Build](https://github.com/datacute/IncrementalGeneratorExtensions/actions/workflows/ci.yml/badge.svg)](https://github.com/datacute/IncrementalGeneratorExtensions/actions/workflows/ci.yml)
 
-Source for the `Datacute.IncrementalGeneratorExtensions` NuGet package,
-which adds source files that provide additional functionality
-for incremental source generators in .NET.
+> Source for the `Datacute.IncrementalGeneratorExtensions` NuGet package,
+  which adds source files that provide additional functionality
+  for incremental source generators in .NET.
 
 ---
-Explanation of the above...
+Breaking down the tagline...
 
 ## The NuGet package
 
@@ -61,6 +61,66 @@ to help with the development of incremental source generators in .NET.
   - Provides an enum `GeneratorStage` with descriptions for each stage of the generator,
     which can be used to track the execution flow in the Lightweight Tracing methods.
 
+## Minimal Example
+
+### Generator wiring
+```csharp
+[Generator]
+public sealed class DemoGenerator : IIncrementalGenerator
+{
+  public void Initialize(IncrementalGeneratorInitializationContext context)
+  {
+    var usages = context.SelectAttributeContexts(
+      "MyNamespace.GenerateSomethingAttribute", 
+      GenerateSomethingData.Collect);
+
+    context.RegisterSourceOutput(usages, static (spc, usage) =>
+    {
+      var gen = new GenerateSomethingSource(in usage, in spc.CancellationToken);
+      spc.AddSource(usage.CreateHintName("GenerateSomething"), gen.GetSourceText());
+    });
+  }
+}
+```
+
+### Simple marker attribute
+```csharp
+[AttributeUsage(AttributeTargets.Class)]
+public sealed class GenerateSomethingAttribute : Attribute
+{
+  public GenerateSomethingAttribute(string name) => Name = name;
+  public string Name { get; }
+}
+```
+
+### Collect projected payload
+```csharp
+sealed class GenerateSomethingData : IEquatable<GenerateSomethingData>
+{
+  public GenerateSomethingData(string name) => Name = name;
+  public string Name { get; }
+  // Equals / GetHashCode omitted for brevity
+  public static GenerateSomethingData Collect(GeneratorAttributeSyntaxContext c)
+    => new GenerateSomethingData((string)c.Attributes[0].ConstructorArguments[0].Value);
+}
+```
+
+### Emit using the base class
+```csharp
+sealed class GenerateSomethingSource : SourceTextGeneratorBase<GenerateSomethingData>
+{
+  readonly GenerateSomethingData _data;
+
+  public GenerateSomethingSource(
+    in AttributeContextAndData<GenerateSomethingData> usage,
+    in CancellationToken token)
+    : base(in usage, in token) => _data = usage.AttributeData;
+
+  protected override void AppendCustomMembers()
+    => Buffer.AppendLine($"public static string GeneratedName => \"{_data.Name}\";");
+}
+```
+
 ## Customizing the experience
 
 ### Hiding the README file
@@ -100,6 +160,24 @@ define the relevant constant in the consuming project's `.csproj` file:
 ```
 
 The file will still be generated, but it will not add anything to the compilation.
+
+## Document Roles
+Each README targets a specific audience:
+
+* `README.md` (this doc)
+  * Audience: GitHub viewers, contributors and evaluators.
+  * Purpose: Explain project scope, features, architecture links, build & contribution basics.
+* `PACKAGE_README.md`
+  * Audience: Potential NuGet consumers browsing nuget.org packages.
+  * Purpose: Quick value summary, barest minimal example.
+* `content/Datacute.IncrementalGeneratorExtensions.README.md`
+  * Audience: Existing users inside their IDE after install.
+  * Purpose: Fast in‑project reference: feature list, exclusion flags, how to hide file, doc links.
+* `docs` directory
+  * Audience: Anyone needing more detail than the brief READMEs.
+  * Purpose: Online extended docs for each helper.
+
+Guideline: Depth lives in `docs/`; keep package README short; keep content README scannable.
 
 # Thanks
 
