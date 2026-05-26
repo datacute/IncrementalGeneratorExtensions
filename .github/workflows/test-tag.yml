@@ -1,0 +1,35 @@
+﻿name: Test Tag Extraction
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-tag:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        fetch-tags: true
+
+    - name: Get tag for current commit (Test Logic)
+      id: get_tag
+      run: |
+        # Try to get the exact tag pointing to the current HEAD
+        TAG=$(git describe --tags --exact-match HEAD 2>/dev/null || true)
+        
+        if [ -n "$TAG" ]; then
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "FOUND TAG: $TAG"
+        else
+          echo "tag=" >> $GITHUB_OUTPUT
+          echo "NO EXACT TAG FOUND ON THIS COMMIT"
+        fi
+
+    - name: Verify Extracted Output
+      run: |
+        echo "The extracted tag variable is: '${{ steps.get_tag.outputs.tag }}'"
+
