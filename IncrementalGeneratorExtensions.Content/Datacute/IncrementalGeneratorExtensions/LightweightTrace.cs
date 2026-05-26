@@ -52,7 +52,8 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// </summary>
         /// <param name="eventId">The ID of the event to log.</param>
         /// <typeparam name="TEnum">The type of the event ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
-        public static void Add<TEnum>(TEnum eventId) where TEnum : Enum => Add(Convert.ToInt32(eventId));
+        public static void Add<TEnum>(TEnum eventId) where TEnum : Enum
+            => Add(System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref eventId));
 
         /// <summary>
         /// Adds an event to the trace log with the specified event ID and numeric value.
@@ -60,7 +61,8 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <param name="eventId">The ID of the event to log.</param>
         /// <param name="value">The value associated with the event, which can be used for additional context or categorization.</param>
         /// <typeparam name="TEnum">The type of the event ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
-        public static void Add<TEnum>(TEnum eventId, int value) where TEnum : Enum => Add(Convert.ToInt32(eventId), value);
+        public static void Add<TEnum>(TEnum eventId, int value) where TEnum : Enum
+            => Add(System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref eventId), value);
 
         /// <summary>
         /// Adds an event to the trace log with the specified event ID and enum value.
@@ -69,7 +71,10 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <param name="value">The value associated with the event, which can be used for additional context or categorization.</param>
         /// <typeparam name="TEnumKey">The type of the event ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
         /// <typeparam name="TEnumValue">The type of the value, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
-        public static void Add<TEnumKey,TEnumValue>(TEnumKey eventId, TEnumValue value) where TEnumKey : Enum where TEnumValue : Enum => Add(Convert.ToInt32(eventId), Convert.ToInt32(value), true);
+        public static void Add<TEnumKey, TEnumValue>(TEnumKey eventId, TEnumValue value)
+            where TEnumKey : Enum
+            where TEnumValue : Enum
+            => Add(System.Runtime.CompilerServices.Unsafe.As<TEnumKey, int>(ref eventId), System.Runtime.CompilerServices.Unsafe.As<TEnumValue, int>(ref value), true);
 
         /// <summary>
         /// Adds an event to the trace log with the specified numeric event ID and value.
@@ -89,9 +94,9 @@ namespace Datacute.IncrementalGeneratorExtensions
             var index = Interlocked.Increment(ref _index) % Capacity;
             Events[index] = (Stopwatch.ElapsedTicks, eventId | (mapValue ? MapValueFlag : 0));
 #if !DATACUTE_EXCLUDE_GENERATORSTAGE
-            if ((eventId / CompositeValueShift) != Convert.ToInt32(GeneratorStage.MethodExit))
+            if ((eventId / CompositeValueShift) != (int)GeneratorStage.MethodExit)
             {
-                IncrementCount(GeneratorStage.MethodCall, eventId % CompositeValueShift, true);
+                IncrementCount((int)GeneratorStage.MethodCall, eventId % CompositeValueShift, true);
             }
 #else
             IncrementCount(eventId % CompositeValueShift);
@@ -104,14 +109,14 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// </summary>
         /// <param name="eventId">The ID of the event to log.</param>
         /// <typeparam name="TEnum">The type of the event ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
-        public static void MethodEntry<TEnum>(TEnum eventId) where TEnum : Enum => Add(Convert.ToInt32(eventId), Convert.ToInt32(GeneratorStage.MethodEntry), true);
+        public static void MethodEntry<TEnum>(TEnum eventId) where TEnum : Enum => Add(System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref eventId), (int)GeneratorStage.MethodEntry, true);
 
         /// <summary>
         /// Adds a method exit event to the trace log with the specified event ID.
         /// </summary>
         /// <param name="eventId">The ID of the event to log.</param>
         /// <typeparam name="TEnum">The type of the event ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
-        public static void MethodExit<TEnum>(TEnum eventId) where TEnum : Enum => Add(Convert.ToInt32(eventId), Convert.ToInt32(GeneratorStage.MethodExit), true);
+        public static void MethodExit<TEnum>(TEnum eventId) where TEnum : Enum => Add(System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref eventId), (int)GeneratorStage.MethodExit, true);
 #endif
 
         /// <summary>
@@ -143,14 +148,30 @@ namespace Datacute.IncrementalGeneratorExtensions
             }
         }
 
-        private static readonly ConcurrentDictionary<int, long> Counters = new ConcurrentDictionary<int, long>();
+        private class Counter
+        {
+            public long Value;
+        }
+
+        private static readonly ConcurrentDictionary<int, Counter> Counters = new ConcurrentDictionary<int, Counter>();
+
+        private static Counter GetOrAddCounter(int key)
+        {
+            if (!Counters.TryGetValue(key, out var counter))
+            {
+                counter = Counters.GetOrAdd(key, _ => new Counter());
+            }
+
+            return counter;
+        }
 
         /// <summary>
         /// Increments the value of a given key by 1.
         /// </summary>
         /// <param name="counterId">The ID of the counter to increment.</param>
         /// <typeparam name="TEnum">The type of the counter ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
-        public static void IncrementCount<TEnum>(TEnum counterId) where TEnum : Enum => IncrementCount(Convert.ToInt32(counterId));
+        public static void IncrementCount<TEnum>(TEnum counterId) where TEnum : Enum
+            => IncrementCount(System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref counterId));
 
         /// <summary>
         /// Increments the value of a given key[value] combination by 1.
@@ -165,14 +186,16 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// LightweightTrace.IncrementCount(GeneratorStage.MethodCall, eventId, true);
         /// </code>
         /// </example>
-        public static void IncrementCount<TEnum>(TEnum counterId, int value, bool mapValue = false) where TEnum : Enum => IncrementCount(Convert.ToInt32(counterId), value, mapValue);
+        public static void IncrementCount<TEnum>(TEnum counterId, int value, bool mapValue = false) where TEnum : Enum
+            => IncrementCount(System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref counterId), value, mapValue);
 
         /// <summary>
         /// Decrements the value of a given key by 1.
         /// </summary>
         /// <param name="counterId">The ID of the counter to decrement.</param>
         /// <typeparam name="TEnum">The type of the counter ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
-        public static void DecrementCount<TEnum>(TEnum counterId) where TEnum : Enum => DecrementCount(Convert.ToInt32(counterId));
+        public static void DecrementCount<TEnum>(TEnum counterId) where TEnum : Enum
+            => DecrementCount(System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref counterId));
 
         /// <summary>
         /// Decrements the value of a given key[value] combination by 1.
@@ -181,13 +204,14 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <param name="value">The value associated with the counter, which can be used for additional context or categorization.</param>
         /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
         /// <typeparam name="TEnum">The type of the counter ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
-        public static void DecrementCount<TEnum>(TEnum counterId, int value, bool mapValue = false) where TEnum : Enum => DecrementCount(Convert.ToInt32(counterId), value, mapValue);
+        public static void DecrementCount<TEnum>(TEnum counterId, int value, bool mapValue = false) where TEnum : Enum
+            => DecrementCount(System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref counterId), value, mapValue);
 
         /// <summary>
         /// Increments the value of a given key by 1.
         /// </summary>
         /// <param name="counterId">The ID of the counter to increment.</param>
-        public static void IncrementCount(int counterId) => Counters.AddOrUpdate(counterId, 1, (_, count) => count + 1);
+        public static void IncrementCount(int counterId) => Interlocked.Increment(ref GetOrAddCounter(counterId).Value);
 
         /// <summary>
         /// Increments the value of a given key[value] combination by 1.
@@ -195,13 +219,13 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <param name="counterId">The ID of the counter to increment.</param>
         /// <param name="value">The value associated with the counter, which can be used for additional context or categorization.</param>
         /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
-        public static void IncrementCount(int counterId, int value, bool mapValue = false) => Counters.AddOrUpdate(EncodeKey(counterId, value, mapValue), 1, (_, count) => count + 1);
+        public static void IncrementCount(int counterId, int value, bool mapValue = false) => Interlocked.Increment(ref GetOrAddCounter(EncodeKey(counterId, value, mapValue)).Value);
 
         /// <summary>
         /// Decrements the value of a given key by 1.
         /// </summary>
         /// <param name="counterId">The ID of the counter to increment.</param>
-        public static void DecrementCount(int counterId) => Counters.AddOrUpdate(counterId, -1, (_, count) => count - 1);
+        public static void DecrementCount(int counterId) => Interlocked.Decrement(ref GetOrAddCounter(counterId).Value);
 
         /// <summary>
         /// Decrements the value of a given key[value] combination by 1.
@@ -209,7 +233,7 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <param name="counterId">The ID of the counter to decrement.</param>
         /// <param name="value">The value associated with the counter, which can be used for additional context or categorization.</param>
         /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
-        public static void DecrementCount(int counterId, int value, bool mapValue = false) => Counters.AddOrUpdate(EncodeKey(counterId, value, mapValue), -1, (_, count) => count - 1);
+        public static void DecrementCount(int counterId, int value, bool mapValue = false) => Interlocked.Decrement(ref GetOrAddCounter(EncodeKey(counterId, value, mapValue)).Value);
 
         /// <summary>
         /// Gets a string with the current cache performance metrics.
@@ -228,7 +252,7 @@ namespace Datacute.IncrementalGeneratorExtensions
             foreach (var kvp in Counters.OrderBy(kvp => kvp.Key % CompositeValueShift).ThenBy(kvp => kvp.Key))
             {
                 int counterId = kvp.Key;
-                long count = kvp.Value;
+                long count = Interlocked.Read(ref kvp.Value.Value);
 
                 var textAndValue = FormatEventKey(eventNameMap, counterId);
                 stringBuilder.AppendFormat(
