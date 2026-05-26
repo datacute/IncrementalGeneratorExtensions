@@ -7,7 +7,6 @@ on:
     - develop
     tags:
     - '*.*.*'
-    - 'v*.*.*'
   pull_request:
     branches:
     - main
@@ -30,8 +29,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v5
-      with:
-        fetch-tags: true
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
@@ -42,15 +39,8 @@ jobs:
       id: get_tag
       # Check for tags when triggered by main branch push (with tag) or direct tag push
       # Can't use github.ref_name because it's "main" when pushing branch+tag together
-      run: |
-        if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-        else
-          TAG=$(git tag --points-at HEAD | head -n 1)
-          if [ -n "$TAG" ]; then
-            echo "tag=$TAG" >> $GITHUB_OUTPUT
-          fi
-        fi
+      if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+      uses: olegtarasov/get-tag@v2.1.4
 
     - name: Set Version Profile
       run: |
@@ -76,7 +66,7 @@ jobs:
         ls -la ./artifacts/
 
     - name: Extract release notes from CHANGELOG.md
-      if: false # Temporarily disabled for testing
+      if: steps.get_tag.outputs.tag != ''
       id: extract_notes
       uses: mindsers/changelog-reader-action@v2
       with:
@@ -84,8 +74,8 @@ jobs:
         path: ./CHANGELOG.md
 
     - name: Create GitHub Release
-      if: false # Temporarily disabled for testing
-      uses: softprops/action-gh-release@v3
+      if: steps.get_tag.outputs.tag != ''
+      uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ steps.get_tag.outputs.tag }}
         body: ${{ steps.extract_notes.outputs.changes }}
