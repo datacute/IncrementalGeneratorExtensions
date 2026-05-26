@@ -33,7 +33,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
       with:
-        dotnet-version: '9.0.x'
+        global-json-file: global.json
 
     - name: Get tag for current commit
       id: get_tag
