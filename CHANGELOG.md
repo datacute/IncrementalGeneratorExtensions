@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added unit tests and benchmarks
+
+### Changed
+
+- Performance improvements on net481
+
+### Fixed
+
+- Equals fix for AttributeContextAndData and minor churn
+
 ## [1.0.6] - 2025-08-16
 
 ### Added
