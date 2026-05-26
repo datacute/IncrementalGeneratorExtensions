@@ -24,6 +24,7 @@ jobs:
     env:
       BUILD_CONFIG: 'Release'
       SOLUTION: '*.sln'
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
     runs-on: ubuntu-latest
 
