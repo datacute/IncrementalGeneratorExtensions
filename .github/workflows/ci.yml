@@ -74,7 +74,7 @@ jobs:
         ls -la ./artifacts/
 
     - name: Extract release notes from CHANGELOG.md
-      if: steps.get_tag.outputs.tag != ''
+      if: false # Temporarily disabled for testing
       id: extract_notes
       uses: mindsers/changelog-reader-action@v2
       with:
@@ -82,7 +82,7 @@ jobs:
         path: ./CHANGELOG.md
 
     - name: Create GitHub Release
-      if: steps.get_tag.outputs.tag != ''
+      if: false # Temporarily disabled for testing
       uses: softprops/action-gh-release@v3
       with:
         tag_name: ${{ steps.get_tag.outputs.tag }}
