@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <LangVersion>latestMajor</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <!-- xUnit1051 wants TestContext.Current.CancellationToken passed to every CT-accepting method.
+         Noise for in-memory factory helpers; suppressed project-wide. -->
+    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Include the sample source files as part of this test assembly so tests exercise the same code shipped as content -->
+  <ItemGroup>
+    <Compile Include="..\..\IncrementalGeneratorExtensions.Content\Datacute\IncrementalGeneratorExtensions\*.cs">
+      <Link>Content\%(Filename)%(Extension)</Link>
+    </Compile>
+  </ItemGroup>
+
+</Project>

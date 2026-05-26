@@ -80,14 +80,15 @@ namespace Datacute.IncrementalGeneratorExtensions
         }
 
         /// <inheritdoc />
-        public bool Equals(AttributeContextAndData<T> other) => 
-            Context.Equals(other.Context) && 
+        public bool Equals(AttributeContextAndData<T> other) =>
+            Context.Equals(other.Context) &&
             Equals(ContainingTypes, other.ContainingTypes) &&
             EqualityComparer<T>.Default.Equals(AttributeData, other.AttributeData) &&
-            IsInFileScopedNamespace == other.IsInFileScopedNamespace;
+            IsInFileScopedNamespace == other.IsInFileScopedNamespace &&
+            IsNullableContextEnabled == other.IsNullableContextEnabled;
 
         /// <inheritdoc />
-        public override bool Equals(object obj) => 
+        public override bool Equals(object obj) =>
             obj is AttributeContextAndData<T> other && Equals(other);
 
         /// <inheritdoc />
@@ -99,6 +100,7 @@ namespace Datacute.IncrementalGeneratorExtensions
                 hashCode = (hashCode * 397) ^ ContainingTypes.GetHashCode();
                 hashCode = (hashCode * 397) ^ EqualityComparer<T>.Default.GetHashCode(AttributeData);
                 hashCode = (hashCode * 397) ^ (IsInFileScopedNamespace ? 1 : 0);
+                hashCode = (hashCode * 397) ^ (IsNullableContextEnabled ? 1 : 0);
                 return hashCode;
             }
         }
@@ -298,9 +300,12 @@ namespace Datacute.IncrementalGeneratorExtensions
             if (!(syntaxTree.GetRoot(token) is CompilationUnitSyntax root))
                 return false;
 
+            const string fileScopedNamespaceTypeName = "FileScopedNamespaceDeclarationSyntax";
             foreach (var member in root.Members)
             {
-                if (member.GetType().Name == "FileScopedNamespaceDeclarationSyntax")
+                // Roslyn versions before C#10 may not expose FileScopedNamespaceDeclarationSyntax;
+                // compare the runtime type name rather than introducing a hard dependency.
+                if (member.GetType().Name == fileScopedNamespaceTypeName)
                     return true;
             }
 

@@ -1,7 +1,5 @@
 ﻿#if !DATACUTE_EXCLUDE_INDENTINGLINEAPPENDER
 using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Text;
 
 namespace Datacute.IncrementalGeneratorExtensions
@@ -29,7 +27,7 @@ namespace Datacute.IncrementalGeneratorExtensions
         private readonly int _indentationCharacterRepetition;
         private readonly string _blockStart;
         private readonly string _blockEnd;
-        private readonly Dictionary<int, string> _indentationCache = new Dictionary<int, string>();
+        private string[] _indentationCache = new string[16];
 
         /// <summary>
         /// Gets the underlying <see cref="StringBuilder"/> used for direct text manipulation.
@@ -98,8 +96,8 @@ namespace Datacute.IncrementalGeneratorExtensions
             _blockEnd = blockEnd;
 
             SingleIndent = new string(_indentationCharacter, _indentationCharacterRepetition);
-            _indentationCache.Add(0, string.Empty);
-            _indentationCache.Add(1, SingleIndent);
+            _indentationCache[0] = string.Empty;
+            _indentationCache[1] = SingleIndent;
         }
 
         /// <summary>
@@ -117,13 +115,32 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <returns>A string containing the appropriate number of indentation characters.</returns>
         public string StringForIndent(int indent)
         {
-            if (!_indentationCache.TryGetValue(indent, out var indentString))
+            if (indent < 0) return string.Empty;
+            
+            if (indent < _indentationCache.Length)
             {
-                indentString = new string(_indentationCharacter, indent * _indentationCharacterRepetition);
-                _indentationCache[indent] = indentString;
+                var indentString = _indentationCache[indent];
+                if (indentString != null)
+                {
+                    return indentString;
+                }
             }
 
-            return indentString;
+            var newIndentString = new string(_indentationCharacter, indent * _indentationCharacterRepetition);
+            
+            if (indent < _indentationCache.Length)
+            {
+                _indentationCache[indent] = newIndentString;
+            }
+            else if (indent < 64) // Allow cache to grow up to a reasonable limit
+            {
+                var newCache = new string[indent + 1];
+                Array.Copy(_indentationCache, newCache, _indentationCache.Length);
+                _indentationCache = newCache;
+                _indentationCache[indent] = newIndentString;
+            }
+
+            return newIndentString;
         }
 
         /// <summary>
@@ -246,20 +263,34 @@ namespace Datacute.IncrementalGeneratorExtensions
                 return this;
             }
 
-            using (var reader = new StringReader(content))
+            int length = content.Length;
+            int startIndex = 0;
+
+            while (startIndex < length)
             {
-                string line;
-                while ((line = reader.ReadLine()) != null)
+                int newlineIndex = content.IndexOf('\n', startIndex);
+                if (newlineIndex == -1)
                 {
-                    if (line.Length == 0)
-                    {
-                        _buffer.AppendLine();
-                    }
-                    else
-                    {
-                        AppendLine(line);
-                    }
+                    newlineIndex = length;
                 }
+
+                int endIndex = newlineIndex;
+                if (endIndex > startIndex && content[endIndex - 1] == '\r')
+                {
+                    endIndex--;
+                }
+
+                int lineLength = endIndex - startIndex;
+                if (lineLength == 0)
+                {
+                    _buffer.AppendLine();
+                }
+                else
+                {
+                    _buffer.Append(_currentIndentString).Append(content, startIndex, lineLength).AppendLine();
+                }
+
+                startIndex = newlineIndex + 1;
             }
 
             return this;

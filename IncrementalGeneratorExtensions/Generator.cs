@@ -6,10 +6,10 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace Datacute.IncrementalGeneratorExtensions
 {
-    [Generator]
     /// <summary>
     /// Incremental generator that injects embedded helper source files into the consuming compilation.
     /// </summary>
+    [Generator]
     public class Generator : IIncrementalGenerator
     {
         /// <summary>

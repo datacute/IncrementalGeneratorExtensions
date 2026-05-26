@@ -1,0 +1,36 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <LangVersion>latestMajor</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <!-- Verify that the full content surface compiles and behaves correctly when the
+         instance cache is excluded by a consuming project. -->
+    <DefineConstants>$(DefineConstants);DATACUTE_EXCLUDE_EQUATABLEIMMUTABLEARRAYINSTANCECACHE</DefineConstants>
+    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Content source files (same set shipped as the NuGet content) -->
+  <ItemGroup>
+    <Compile Include="..\..\IncrementalGeneratorExtensions.Content\Datacute\IncrementalGeneratorExtensions\*.cs">
+      <Link>Content\%(Filename)%(Extension)</Link>
+    </Compile>
+  </ItemGroup>
+
+  <!-- Reuse all tests from the base project except the ones that require the instance cache class -->
+  <ItemGroup>
+    <Compile Include="..\IncrementalGeneratorExtensions.Content.Tests\*.cs"
+             Exclude="..\IncrementalGeneratorExtensions.Content.Tests\EquatableImmutableArrayInstanceCacheTests.cs">
+      <Link>Shared\%(Filename)%(Extension)</Link>
+    </Compile>
+  </ItemGroup>
+
+</Project>
+

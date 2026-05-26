@@ -86,7 +86,15 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <inheritdoc />
         public bool Equals(TypeContext other)
         {
-            return Name == other.Name && IsStatic == other.IsStatic && IsPartial == other.IsPartial && IsAbstract == other.IsAbstract && IsSealed == other.IsSealed && Namespace == other.Namespace && Accessibility == other.Accessibility && TypeDeclarationKeyword == other.TypeDeclarationKeyword && TypeParameterNames.Equals(other.TypeParameterNames);
+            return Namespace == other.Namespace &&
+                   Name == other.Name &&
+                   IsStatic == other.IsStatic &&
+                   IsPartial == other.IsPartial &&
+                   IsAbstract == other.IsAbstract &&
+                   IsSealed == other.IsSealed &&
+                   Accessibility == other.Accessibility &&
+                   TypeDeclarationKeyword == other.TypeDeclarationKeyword &&
+                   TypeParameterNames.Equals(other.TypeParameterNames);
         }
 
         /// <inheritdoc />
