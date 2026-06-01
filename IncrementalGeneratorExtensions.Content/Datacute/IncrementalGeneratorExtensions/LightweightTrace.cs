@@ -47,6 +47,30 @@ namespace Datacute.IncrementalGeneratorExtensions
         private static readonly (long, int)[] Events = new (long, int)[Capacity];
         private static int _index;
 
+        private static Dictionary<int, string> _customEventNames;
+        private static readonly ConcurrentDictionary<int, string> _dynamicEventNames = new ConcurrentDictionary<int, string>();
+        private static int _nextId = 1024;
+
+        /// <summary>
+        /// Supplies the custom event name map containing pipeline stages and descriptions ahead of time.
+        /// </summary>
+        /// <param name="eventNameMap">The custom event name map.</param>
+        public static void SetEventNameMap(Dictionary<int, string> eventNameMap)
+        {
+            _customEventNames = eventNameMap;
+        }
+
+        /// <summary>
+        /// Dynamically registers a name and returns a unique ID mapping to it.
+        /// </summary>
+        /// <param name="name">The name to register.</param>
+        /// <returns>A unique ID representing the registered name.</returns>
+        public static int RegisterName(string name)
+        {
+            var id = Interlocked.Increment(ref _nextId);
+            _dynamicEventNames[id] = name;
+            return id;
+        }
         /// <summary>
         /// Adds an event to the trace log with the specified event ID.
         /// </summary>
@@ -182,7 +206,7 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <typeparam name="TEnum">The type of the counter ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
         /// <example>
         /// <code lang="csharp">
-        /// LightweightTrace.IncrementCount(GeneratorStage.EquatableImmutableArrayLength, values.Length);
+        /// LightweightTrace.IncrementCount(GeneratorStage.EquatableImmutableArrayInstanceCacheSize, TypeMapId, true);
         /// LightweightTrace.IncrementCount(GeneratorStage.MethodCall, eventId, true);
         /// </code>
         /// </example>
@@ -290,25 +314,21 @@ namespace Datacute.IncrementalGeneratorExtensions
         {
             DecodeKey(key, out var id, out var value, out var mapped);
 
-            string idText = null;
-            if (eventNameMap != null)
-            {
-                eventNameMap.TryGetValue(id, out idText);
-            }
+            string idText = GetMappedName(eventNameMap, id);
             if (idText == null)
             {
                 idText = string.Empty;
             }
 
-            if (!mapped && value == 0 && key < CompositeValueShift)
+            if (!mapped && value == 0)
             {
                 return idText;
             }
 
             string valueText = null;
-            if (mapped && eventNameMap != null)
+            if (mapped)
             {
-                eventNameMap.TryGetValue(value, out valueText);
+                valueText = GetMappedName(eventNameMap, value);
             }
 
             if (valueText == null)
@@ -317,6 +337,25 @@ namespace Datacute.IncrementalGeneratorExtensions
             }
 
             return idText.Length == 0 ? valueText : $"{idText} ({valueText})";
+        }
+
+        private static string GetMappedName(Dictionary<int, string> eventNameMap, int id)
+        {
+            string idText = null;
+            if (eventNameMap != null)
+            {
+                eventNameMap.TryGetValue(id, out idText);
+            }
+            if (idText == null && _customEventNames != null)
+            {
+                _customEventNames.TryGetValue(id, out idText);
+            }
+            if (idText == null)
+            {
+                _dynamicEventNames.TryGetValue(id, out idText);
+            }
+
+            return idText;
         }
 
         /// <summary>

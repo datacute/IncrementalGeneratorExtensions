@@ -78,8 +78,8 @@ Trace Log:
 LightweightTrace.IncrementCount(GeneratorStage.ForAttributeWithMetadataNamePredicate);
 LightweightTrace.Add(GeneratorStage.ForAttributeWithMetadataNamePipelineOutput);
 
-// EquatableImmutableArray Length histogram bucket
-LightweightTrace.IncrementCount(GeneratorStage.EquatableImmutableArrayLength, values.Length);
+// EquatableImmutableArray instance cache size histogram bucket
+LightweightTrace.IncrementCount(GeneratorStage.EquatableImmutableArrayInstanceCacheSize, typeMapId, true);
 
 // Method call mapping (shows up as Method Call (...))
 LightweightTrace.Add(GeneratorStage.RegisterSourceOutput);
