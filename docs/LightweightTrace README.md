@@ -94,14 +94,30 @@ LightweightTrace.MethodExit(GeneratorStage.Initialize);
 - Counters (simple, histogram buckets, mapped enum categories).
 - Time-stamped rolling trace (ring buffer) with method entry/exit tagging.
 - Automatic method call counting (except MethodExit) for frequency insight.
-- Name mapping for ids and (optionally flagged) values via built-in GeneratorStage / GeneratorStageDescriptions plus your own merged enum map.
+- Name mapping for ids and mapped values from three sources: per-call map, shared custom map, and runtime-registered names.
 - AppendDiagnosticsComment combines counters + trace into one embeddable block.
 - Cancellation helpers record where cancellation was observed.
+
+## Name Mapping Sources
+When diagnostics text is rendered, name lookup uses this precedence:
+1. The map passed into `AppendCounts`, `AppendTrace`, or `AppendDiagnosticsComment`.
+2. The shared custom map set once with `LightweightTrace.SetCustomEventNames(...)`.
+3. Runtime registrations created via `LightweightTrace.RegisterName(...)`.
+
+This allows a mixed model where stable pipeline/event names are supplied up front, while runtime-discovered mapped values (for example, generic type names used by cache metrics) are registered dynamically.
+
+Example setup:
+```csharp
+LightweightTrace.SetCustomEventNames(GeneratorStageDescriptions.GeneratorStageNameMap);
+
+var typeMapId = LightweightTrace.RegisterName(typeof(MyType).ToString());
+LightweightTrace.IncrementCount(GeneratorStage.EquatableImmutableArrayInstanceCacheSize, typeMapId, mapValue: true);
+```
 ## Encoding (Brief)
 Composite key: composite = id + (value * CompositeValueShift) + (mapped ? MapValueFlag : 0). Decode splits into id, value, mapped flag. This keeps storage dense and lookups cheap.
 
 ## Extending GeneratorStage With Your Own Events
-You get a built-in baseline enum (GeneratorStage) and a name map (GeneratorStageDescriptions.GeneratorStageNameMap). Extend by defining your own enum with distinct numeric values (gaps are fine) and merge its names into a lazy dictionary so both built-in and custom events share one lookup.
+You get a built-in baseline enum (`GeneratorStage`) and a name map (`GeneratorStageDescriptions.GeneratorStageNameMap`). Extend by defining your own enum with distinct numeric values (gaps are fine) and merge its names into a dictionary so both built-in and custom events share one lookup.
 
 Example enum (abbreviated, made-up stages):
 ```csharp
@@ -146,7 +162,7 @@ LightweightTrace.IncrementCount(GeneratorStage.MethodCall,
     (int)MyPipelineStage.OutputComposed, mapValue: true);                      // categorical mapping
 buffer.AppendDiagnosticsComment(MyPipelineStageDescriptions.EventNameMap);    // merged names
 ```
-Result: diagnostics output shows both core GeneratorStage events and your custom stages with readable names.
+Result: diagnostics output shows both core `GeneratorStage` events and your custom stages with readable names.
 
 ## Recommended Numeric ID Ranges
 CompositeValueShift = 1024, so valid base event/counter IDs (the id portion) are 0–1023.
