@@ -47,6 +47,28 @@ namespace Datacute.IncrementalGeneratorExtensions.Benchmarks
             return builder.MoveToImmutable();
         }
 
+        /// <summary>
+        /// Build an array where the middle element is unique (specified by <paramref name="middleElementId"/>),
+        /// all other elements follow a predictable sequence.
+        /// </summary>
+        public static ImmutableArray<TypeContext> BuildWithUniqueMiddleElement(int length, int middleElementId)
+        {
+            var builder = ImmutableArray.CreateBuilder<TypeContext>(length);
+            int middleIndex = length / 2; // for even lengths this chooses the upper-middle index
+            for (int i = 0; i < length; i++)
+            {
+                if (i == middleIndex)
+                {
+                    builder.Add(CreateTypeContext(middleElementId));
+                }
+                else
+                {
+                    builder.Add(CreateTypeContext(i));
+                }
+            }
+            return builder.MoveToImmutable();
+        }
+
         public static ImmutableArray<TypeContext> BuildShort(params int[] ids)
         {
             var builder = ImmutableArray.CreateBuilder<TypeContext>(ids.Length);

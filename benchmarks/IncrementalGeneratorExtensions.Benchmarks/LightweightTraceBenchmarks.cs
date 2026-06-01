@@ -101,20 +101,20 @@ BenchmarkDotNet v0.15.1, Windows 11 (10.0.26200.8457)
 
 | Method                      | Job    | Mean       | Error     | StdDev    | Median     | Allocated |
 |---------------------------- |------- |-----------:|----------:|----------:|-----------:|----------:|
-| Add_Composite               | net10  | 27.9431 ns | 0.4604 ns | 0.4081 ns | 27.8671 ns |         - |
-| Add_Composite               | net481 | 39.4892 ns | 0.7954 ns | 1.1151 ns | 38.9476 ns |         - |
-| Add_Simple                  | net10  | 27.7514 ns | 0.2972 ns | 0.2634 ns | 27.7237 ns |         - |
-| Add_Simple                  | net481 | 38.8105 ns | 0.3512 ns | 0.3113 ns | 38.7969 ns |         - |
-| DecodeKey                   | net10  |  0.0001 ns | 0.0004 ns | 0.0004 ns |  0.0000 ns |         - |
-| DecodeKey                   | net481 |  7.8579 ns | 0.0680 ns | 0.0603 ns |  7.8615 ns |         - |
-| EncodeKey                   | net10  |  0.0069 ns | 0.0080 ns | 0.0071 ns |  0.0057 ns |         - |
-| EncodeKey                   | net481 |  0.0164 ns | 0.0101 ns | 0.0094 ns |  0.0181 ns |         - |
-| IncrementCount_Composite    | net10  |  4.2033 ns | 0.0443 ns | 0.0370 ns |  4.2069 ns |         - |
-| IncrementCount_Composite    | net481 |  8.9732 ns | 0.1968 ns | 0.2343 ns |  9.0402 ns |         - |
-| IncrementCount_EnumOverload | net10  |  4.3778 ns | 0.1078 ns | 0.1283 ns |  4.3421 ns |         - |
-| IncrementCount_EnumOverload | net481 |  8.1454 ns | 0.1772 ns | 0.2177 ns |  8.1805 ns |         - |
-| IncrementCount_Simple       | net10  |  4.2445 ns | 0.0648 ns | 0.0574 ns |  4.2432 ns |         - |
-| IncrementCount_Simple       | net481 |  8.2045 ns | 0.1839 ns | 0.2044 ns |  8.1801 ns |         - |
+| Add_Composite               | net10  | 27.5475 ns | 0.2628 ns | 0.2330 ns | 27.5307 ns |         - |
+| Add_Composite               | net481 | 38.5967 ns | 0.2179 ns | 0.2141 ns | 38.5779 ns |         - |
+| Add_Simple                  | net10  | 27.3032 ns | 0.2102 ns | 0.1641 ns | 27.2731 ns |         - |
+| Add_Simple                  | net481 | 38.3498 ns | 0.4221 ns | 0.3742 ns | 38.2586 ns |         - |
+| DecodeKey                   | net10  |  0.0011 ns | 0.0032 ns | 0.0028 ns |  0.0000 ns |         - |
+| DecodeKey                   | net481 |  7.6176 ns | 0.0723 ns | 0.0676 ns |  7.5977 ns |         - |
+| EncodeKey                   | net10  |  0.0000 ns | 0.0000 ns | 0.0000 ns |  0.0000 ns |         - |
+| EncodeKey                   | net481 |  0.0055 ns | 0.0098 ns | 0.0096 ns |  0.0001 ns |         - |
+| IncrementCount_Composite    | net10  |  4.2282 ns | 0.0537 ns | 0.0419 ns |  4.2191 ns |         - |
+| IncrementCount_Composite    | net481 |  9.2481 ns | 0.2052 ns | 0.2281 ns |  9.1806 ns |         - |
+| IncrementCount_EnumOverload | net10  |  4.1845 ns | 0.0383 ns | 0.0340 ns |  4.1844 ns |         - |
+| IncrementCount_EnumOverload | net481 |  7.6360 ns | 0.1747 ns | 0.1794 ns |  7.6799 ns |         - |
+| IncrementCount_Simple       | net10  |  4.2527 ns | 0.1049 ns | 0.1248 ns |  4.2063 ns |         - |
+| IncrementCount_Simple       | net481 |  7.8308 ns | 0.1236 ns | 0.1032 ns |  7.8495 ns |         - |
 
 // * Warnings *
 ZeroMeasurement
