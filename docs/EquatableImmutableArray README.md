@@ -84,7 +84,7 @@ With LightweightTrace + GeneratorStage included you may see counters:
 * `EquatableImmutableArrayCacheHit` – structural reuse (fast path success).
 * `EquatableImmutableArrayCacheMiss` – new distinct sequence added to cache.
 * `EquatableImmutableArrayCacheWeakReferenceRemoved` – stale wrapper slot cleaned.
-* `EquatableImmutableArrayLength` – length histogram to spot pathological sizes.
+* `EquatableImmutableArrayInstanceCacheSize` – tracks the number of cached items per mapped type.
 Disable by excluding `LightweightTrace` or `GeneratorStage`, or by disabling the cache (miss counters suppressed in non‑cache mode).
 
 ### Memory Considerations

@@ -62,6 +62,7 @@ namespace Datacute.IncrementalGeneratorExtensions
             { (int)GeneratorStage.EquatableImmutableArrayCacheMiss, "EquatableImmutableArray Cache Miss" },
             { (int)GeneratorStage.EquatableImmutableArrayCacheWeakReferenceRemoved, "EquatableImmutableArray Cache Weak Reference Removed" },
             { (int)GeneratorStage.EquatableImmutableArrayLength, "EquatableImmutableArray Length" },
+            { (int)GeneratorStage.EquatableImmutableArrayInstanceCacheSize, "EquatableImmutableArray Instance Cache Size" },
 #endif
             
             { (int)GeneratorStage.MethodCall, "Method Call" },

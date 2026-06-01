@@ -35,6 +35,11 @@ namespace Datacute.IncrementalGeneratorExtensions.Benchmarks
         private EquatableImmutableArray<TypeContext> _prevShort;
         private EquatableImmutableArray<TypeContext> _prevLong;
 
+        private const int OpsCachedShort = 5_000_000;
+        private const int OpsCachedLong = 2_000_000;
+        private const int OpsNoCacheShort = 2_500_000;
+        private const int OpsNoCacheLong = 300_000;
+
         [GlobalSetup]
         public void Setup()
         {
@@ -46,22 +51,42 @@ namespace Datacute.IncrementalGeneratorExtensions.Benchmarks
             _prevLong = EquatableImmutableArray<TypeContext>.Create(_rawLong);
         }
 
+        [IterationSetup]
+        public void IterationSetup()
+        {
+            EquatableImmutableArrayInstanceCache<TypeContext>.Clear();
+            
+            // Re-populate the cache
+            _prevShort = EquatableImmutableArray<TypeContext>.Create(_rawShort);
+            _prevLong = EquatableImmutableArray<TypeContext>.Create(_rawLong);
+        }
+
         // ------------------------------------------------------------------ //
         //  Cached: Create via instance cache, then Equals against previous      //
         // ------------------------------------------------------------------ //
 
-        [Benchmark(Baseline = true)]
+        [Benchmark(Baseline = true, OperationsPerInvoke = OpsCachedShort)]
         public bool Cached_CreateThenEquals_Short()
         {
-            var created = EquatableImmutableArray<TypeContext>.Create(_rawShort);
-            return created.Equals(_prevShort);
+            bool result = false;
+            for (int i = 0; i < OpsCachedShort; i++)
+            {
+                var created = EquatableImmutableArray<TypeContext>.Create(_rawShort);
+                result = created.Equals(_prevShort);
+            }
+            return result;
         }
 
-        [Benchmark]
+        [Benchmark(OperationsPerInvoke = OpsCachedLong)]
         public bool Cached_CreateThenEquals_Long()
         {
-            var created = EquatableImmutableArray<TypeContext>.Create(_rawLong);
-            return created.Equals(_prevLong);
+            bool result = false;
+            for (int i = 0; i < OpsCachedLong; i++)
+            {
+                var created = EquatableImmutableArray<TypeContext>.Create(_rawLong);
+                result = created.Equals(_prevLong);
+            }
+            return result;
         }
 
         // ------------------------------------------------------------------ //
@@ -72,45 +97,55 @@ namespace Datacute.IncrementalGeneratorExtensions.Benchmarks
         /// Creates a new instance without the cache, as <see cref="EquatableImmutableArray{T}.Create"/>
         /// does when <c>DATACUTE_EXCLUDE_EQUATABLEIMMUTABLEARRAYINSTANCECACHE</c> is defined.
         /// </summary>
-        [Benchmark]
+        [Benchmark(OperationsPerInvoke = OpsNoCacheShort)]
         public bool NoCache_CreateThenEquals_Short()
         {
-            var comparer = EqualityComparer<TypeContext>.Default;
-            int hash = EquatableImmutableArray<TypeContext>.CalculateHashCode(_rawShort, comparer, 0, 0);
-            var created = new EquatableImmutableArray<TypeContext>(_rawShort, hash);
-            return created.Equals(_prevShort);
+            bool result = false;
+            for (int i = 0; i < OpsNoCacheShort; i++)
+            {
+                var comparer = EqualityComparer<TypeContext>.Default;
+                int hash = EquatableImmutableArray<TypeContext>.CalculateHashCode(_rawShort, comparer, 0, 0);
+                var created = new EquatableImmutableArray<TypeContext>(_rawShort, hash);
+                result = created.Equals(_prevShort);
+            }
+            return result;
         }
 
-        [Benchmark]
+        [Benchmark(OperationsPerInvoke = OpsNoCacheLong)]
         public bool NoCache_CreateThenEquals_Long()
         {
-            var comparer = EqualityComparer<TypeContext>.Default;
-            int hash = EquatableImmutableArray<TypeContext>.CalculateHashCode(_rawLong, comparer, 0, 0);
-            var created = new EquatableImmutableArray<TypeContext>(_rawLong, hash);
-            return created.Equals(_prevLong);
+            bool result = false;
+            for (int i = 0; i < OpsNoCacheLong; i++)
+            {
+                var comparer = EqualityComparer<TypeContext>.Default;
+                int hash = EquatableImmutableArray<TypeContext>.CalculateHashCode(_rawLong, comparer, 0, 0);
+                var created = new EquatableImmutableArray<TypeContext>(_rawLong, hash);
+                result = created.Equals(_prevLong);
+            }
+            return result;
         }
     }
 }
 
 /*
-BenchmarkDotNet v0.15.1, Windows 11 (10.0.26200.8457)
+BenchmarkDotNet v0.15.8, Windows 11 (10.0.26200.8457/25H2/2025Update/HudsonValley2)
 12th Gen Intel Core i7-12700H 2.30GHz, 1 CPU, 20 logical and 14 physical cores
 .NET SDK 10.0.300
-  [Host] : .NET 10.0.8 (10.0.826.23019), X64 RyuJIT AVX2
-  net10  : .NET 10.0.8 (10.0.826.23019), X64 RyuJIT AVX2
+  [Host] : .NET 10.0.8 (10.0.8, 10.0.826.23019), X64 RyuJIT x86-64-v3
+  net10  : .NET 10.0.8 (10.0.8, 10.0.826.23019), X64 RyuJIT x86-64-v3
   net481 : .NET Framework 4.8.1 (4.8.9325.0), X64 RyuJIT VectorSize=256
 
-| Method                         | Job    | Mean      | Error     | StdDev    | Ratio | RatioSD | Gen0   | Allocated | Alloc Ratio |
-|------------------------------- |------- |----------:|----------:|----------:|------:|--------:|-------:|----------:|------------:|
-| Cached_CreateThenEquals_Long   | net10  |  94.09 ns |  1.818 ns |  1.785 ns |  2.98 |    0.06 |      - |         - |          NA |
-| Cached_CreateThenEquals_Long   | net481 | 200.99 ns |  2.268 ns |  2.122 ns |  2.64 |    0.04 |      - |         - |          NA |
-| Cached_CreateThenEquals_Short  | net10  |  31.62 ns |  0.319 ns |  0.267 ns |  1.00 |    0.01 |      - |         - |          NA |
-| Cached_CreateThenEquals_Short  | net481 |  76.01 ns |  0.751 ns |  0.703 ns |  1.00 |    0.01 |      - |         - |          NA |
-| NoCache_CreateThenEquals_Long  | net10  | 381.61 ns |  4.086 ns |  3.190 ns | 12.07 |    0.14 |      - |         - |          NA |
-| NoCache_CreateThenEquals_Long  | net481 | 561.52 ns | 10.923 ns | 11.217 ns |  7.39 |    0.16 | 0.0048 |      32 B |          NA |
-| NoCache_CreateThenEquals_Short | net10  |  58.51 ns |  0.462 ns |  0.409 ns |  1.85 |    0.02 |      - |         - |          NA |
-| NoCache_CreateThenEquals_Short | net481 |  97.28 ns |  1.439 ns |  1.346 ns |  1.28 |    0.02 | 0.0050 |      32 B |          NA |
+InvocationCount=1  UnrollFactor=1  
+
+| Method                         | Job    | Mean      | Error    | StdDev   | Ratio | RatioSD | Gen0   | Allocated | Alloc Ratio |
+|------------------------------- |------- |----------:|---------:|---------:|------:|--------:|-------:|----------:|------------:|
+| Cached_CreateThenEquals_Long   | net10  |  89.48 ns | 1.051 ns | 0.932 ns |  2.90 |    0.07 |      - |         - |          NA |
+| Cached_CreateThenEquals_Long   | net481 | 202.10 ns | 3.539 ns | 3.310 ns |  2.70 |    0.06 |      - |         - |          NA |
+| Cached_CreateThenEquals_Short  | net10  |  30.84 ns | 0.608 ns | 0.700 ns |  1.00 |    0.03 |      - |         - |          NA |
+| Cached_CreateThenEquals_Short  | net481 |  74.73 ns | 1.152 ns | 1.078 ns |  1.00 |    0.02 |      - |         - |          NA |
+| NoCache_CreateThenEquals_Long  | net10  | 398.01 ns | 2.787 ns | 2.176 ns | 12.91 |    0.29 |      - |      32 B |          NA |
+| NoCache_CreateThenEquals_Long  | net481 | 542.56 ns | 6.118 ns | 5.723 ns |  7.26 |    0.13 | 0.0033 |      32 B |          NA |
+| NoCache_CreateThenEquals_Short | net10  |  64.72 ns | 1.261 ns | 1.595 ns |  2.10 |    0.07 | 0.0024 |      32 B |          NA |
+| NoCache_CreateThenEquals_Short | net481 |  93.22 ns | 0.669 ns | 0.626 ns |  1.25 |    0.02 | 0.0048 |      32 B |          NA |
 
 */
-
-

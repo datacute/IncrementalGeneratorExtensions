@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Instance cache size metrics are now tracked per generic type.
+- LightweightTrace now supports runtime-discovered names such as generic type names.
+
 ## [1.0.7] - 2026-05-26
 
 ### Added

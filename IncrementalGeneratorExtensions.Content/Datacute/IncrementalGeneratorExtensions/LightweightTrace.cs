@@ -12,7 +12,7 @@ namespace Datacute.IncrementalGeneratorExtensions
     /// <summary>
     /// Zero-allocation instrumentation core for incremental source generators.
     /// <para>Features: ring-buffer timestamped event trace; composite-key counters (id + value + mapping flag) for histograms & categorical counts; automatic method-call frequency counting; method entry/exit tagging; single-int key encoding to minimize memory & dictionary churn; unified AppendDiagnosticsComment output (counters + trace) embeddable in generated code.</para>
-    /// <para>Goal: fast, in-process behavioral visibility without external profilers or large allocations.</para>
+    /// <para>Goal: fast, in-process behavioural visibility without external profilers or large allocations.</para>
     /// </summary>
     public static class LightweightTrace
     {
@@ -48,6 +48,56 @@ namespace Datacute.IncrementalGeneratorExtensions
         private static int _index;
 
         /// <summary>
+        /// Custom names supplied by the caller for event IDs and mapped values.
+        /// </summary>
+        /// <remarks>
+        /// Used for known names wired by the generator, such as stage descriptions.
+        /// Lookup precedence is: the map passed to the formatting call, then this map (set via <see cref="SetCustomEventNames"/>), then dynamically registered names.
+        /// </remarks>
+        private static Dictionary<int, string> _customEventNames;
+
+        /// <summary>
+        /// Runtime-registered names keyed by allocated IDs.
+        /// </summary>
+        private static readonly ConcurrentDictionary<int, string> _dynamicValueNames = new ConcurrentDictionary<int, string>();
+
+        /// <summary>
+        /// Backing counter for dynamically registered names.
+        /// </summary>
+        /// <remarks>
+        /// Starts one below <see cref="CompositeValueShift"/> so the first allocated ID enters the dynamic ID range.
+        /// </remarks>
+        private static int _nextId = CompositeValueShift - 1;
+
+        /// <summary>
+        /// Supplies custom names for known event IDs and mapped values.
+        /// </summary>
+        /// <param name="customEventNames">The custom name map.</param>
+        /// <remarks>
+        /// Use this for known names that are available at wiring time.
+        /// </remarks>
+        public static void SetCustomEventNames(Dictionary<int, string> customEventNames)
+        {
+            _customEventNames = customEventNames;
+        }
+
+        /// <summary>
+        /// Dynamically registers a mapped-value name and returns a unique ID for it.
+        /// </summary>
+        /// <param name="name">The name to register.</param>
+        /// <returns>A unique ID representing the registered mapped value name.</returns>
+        /// <remarks>
+        /// IDs are allocated from the contiguous range above <see cref="CompositeValueShift"/> and are thread-safe.
+        /// This is typically used for runtime-discovered names such as generic type names.
+        /// </remarks>
+        public static int RegisterName(string name)
+        {
+            var id = Interlocked.Increment(ref _nextId);
+            _dynamicValueNames[id] = name;
+            return id;
+        }
+
+        /// <summary>
         /// Adds an event to the trace log with the specified event ID.
         /// </summary>
         /// <param name="eventId">The ID of the event to log.</param>
@@ -59,7 +109,7 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// Adds an event to the trace log with the specified event ID and numeric value.
         /// </summary>
         /// <param name="eventId">The ID of the event to log.</param>
-        /// <param name="value">The value associated with the event, which can be used for additional context or categorization.</param>
+        /// <param name="value">The value associated with the event, which can be used for additional context or categorisation.</param>
         /// <typeparam name="TEnum">The type of the event ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
         public static void Add<TEnum>(TEnum eventId, int value) where TEnum : Enum
             => Add(System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref eventId), value);
@@ -68,7 +118,7 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// Adds an event to the trace log with the specified event ID and enum value.
         /// </summary>
         /// <param name="eventId">The ID of the event to log.</param>
-        /// <param name="value">The value associated with the event, which can be used for additional context or categorization.</param>
+        /// <param name="value">The value associated with the event, which can be used for additional context or categorisation.</param>
         /// <typeparam name="TEnumKey">The type of the event ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
         /// <typeparam name="TEnumValue">The type of the value, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
         public static void Add<TEnumKey, TEnumValue>(TEnumKey eventId, TEnumValue value)
@@ -80,7 +130,7 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// Adds an event to the trace log with the specified numeric event ID and value.
         /// </summary>
         /// <param name="eventId">The ID of the event to log.</param>
-        /// <param name="value">The value associated with the event, which can be used for additional context or categorization.</param>
+        /// <param name="value">The value associated with the event, which can be used for additional context or categorisation.</param>
         /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
         public static void Add(int eventId, int value, bool mapValue = false) => Add(EncodeKey(eventId, value, mapValue));
 
@@ -123,7 +173,10 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// Appends the trace log to the provided StringBuilder.
         /// </summary>
         /// <param name="stringBuilder">The StringBuilder to append the trace log to.</param>
-        /// <param name="eventNameMap">A dictionary mapping event IDs and values to their names, used for more readable output.</param>
+        /// <param name="eventNameMap">An optional per-call name map for event IDs and mapped values.</param>
+        /// <remarks>
+        /// Name lookup precedence is: the per-call map, then <see cref="SetCustomEventNames"/>, then <see cref="RegisterName"/> registrations.
+        /// </remarks>
         public static void AppendTrace(this StringBuilder stringBuilder, Dictionary<int, string> eventNameMap = null)
         {
             if (stringBuilder is null)
@@ -177,12 +230,12 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// Increments the value of a given key[value] combination by 1.
         /// </summary>
         /// <param name="counterId">The ID of the counter to increment.</param>
-        /// <param name="value">The value associated with the counter, which can be used for additional context or categorization.</param>
+        /// <param name="value">The value associated with the counter, which can be used for additional context or categorisation.</param>
         /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
         /// <typeparam name="TEnum">The type of the counter ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
         /// <example>
         /// <code lang="csharp">
-        /// LightweightTrace.IncrementCount(GeneratorStage.EquatableImmutableArrayLength, values.Length);
+        /// LightweightTrace.IncrementCount(GeneratorStage.EquatableImmutableArrayInstanceCacheSize, TypeMapId, true);
         /// LightweightTrace.IncrementCount(GeneratorStage.MethodCall, eventId, true);
         /// </code>
         /// </example>
@@ -201,11 +254,31 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// Decrements the value of a given key[value] combination by 1.
         /// </summary>
         /// <param name="counterId">The ID of the counter to decrement.</param>
-        /// <param name="value">The value associated with the counter, which can be used for additional context or categorization.</param>
+        /// <param name="value">The value associated with the counter, which can be used for additional context or categorisation.</param>
         /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
         /// <typeparam name="TEnum">The type of the counter ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
         public static void DecrementCount<TEnum>(TEnum counterId, int value, bool mapValue = false) where TEnum : Enum
             => DecrementCount(System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref counterId), value, mapValue);
+
+        /// <summary>
+        /// Sets the value of a given key.
+        /// </summary>
+        /// <param name="counterId">The ID of the counter to set.</param>
+        /// <param name="count">The new value for the counter.</param>
+        /// <typeparam name="TEnum">The type of the counter ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
+        public static void SetCount<TEnum>(TEnum counterId, long count) where TEnum : Enum
+            => SetCount(System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref counterId), count);
+
+        /// <summary>
+        /// Sets the value of a given key.
+        /// </summary>
+        /// <param name="counterId">The ID of the counter to set.</param>
+        /// <param name="value">The value associated with the counter, which can be used for additional context or categorisation.</param>
+        /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
+        /// <param name="count">The new value for the counter.</param>
+        /// <typeparam name="TEnum">The type of the counter ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
+        public static void SetCount<TEnum>(TEnum counterId, int value, bool mapValue, long count) where TEnum : Enum
+            => SetCount(System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref counterId), value, mapValue, count);
 
         /// <summary>
         /// Increments the value of a given key by 1.
@@ -217,24 +290,40 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// Increments the value of a given key[value] combination by 1.
         /// </summary>
         /// <param name="counterId">The ID of the counter to increment.</param>
-        /// <param name="value">The value associated with the counter, which can be used for additional context or categorization.</param>
+        /// <param name="value">The value associated with the counter, which can be used for additional context or categorisation.</param>
         /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
         public static void IncrementCount(int counterId, int value, bool mapValue = false) => Interlocked.Increment(ref GetOrAddCounter(EncodeKey(counterId, value, mapValue)).Value);
 
         /// <summary>
         /// Decrements the value of a given key by 1.
         /// </summary>
-        /// <param name="counterId">The ID of the counter to increment.</param>
+        /// <param name="counterId">The ID of the counter to decrement.</param>
         public static void DecrementCount(int counterId) => Interlocked.Decrement(ref GetOrAddCounter(counterId).Value);
 
         /// <summary>
         /// Decrements the value of a given key[value] combination by 1.
         /// </summary>
         /// <param name="counterId">The ID of the counter to decrement.</param>
-        /// <param name="value">The value associated with the counter, which can be used for additional context or categorization.</param>
+        /// <param name="value">The value associated with the counter, which can be used for additional context or categorisation.</param>
         /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
         public static void DecrementCount(int counterId, int value, bool mapValue = false) => Interlocked.Decrement(ref GetOrAddCounter(EncodeKey(counterId, value, mapValue)).Value);
 
+        /// <summary>
+        /// Sets the value of a given key.
+        /// </summary>
+        /// <param name="counterId">The ID of the counter to set.</param>
+        /// <param name="count">The new value for the counter.</param>
+        public static void SetCount(int counterId, long count) => Interlocked.Exchange(ref GetOrAddCounter(counterId).Value, count);
+
+        /// <summary>
+        /// Sets the value of a given key.
+        /// </summary>
+        /// <param name="counterId">The ID of the counter to set.</param>
+        /// <param name="value">The value associated with the counter.</param>
+        /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
+        /// <param name="count">The new value for the counter.</param>
+        public static void SetCount(int counterId, int value, bool mapValue, long count) => Interlocked.Exchange(ref GetOrAddCounter(EncodeKey(counterId, value, mapValue)).Value, count);
+        
         /// <summary>
         /// Gets a string with the current cache performance metrics.
         /// It intelligently separates simple counters from histogram data based on key prefixes.
@@ -290,25 +379,21 @@ namespace Datacute.IncrementalGeneratorExtensions
         {
             DecodeKey(key, out var id, out var value, out var mapped);
 
-            string idText = null;
-            if (eventNameMap != null)
-            {
-                eventNameMap.TryGetValue(id, out idText);
-            }
+            string idText = GetMappedName(eventNameMap, id);
             if (idText == null)
             {
                 idText = string.Empty;
             }
 
-            if (!mapped && value == 0 && key < CompositeValueShift)
+            if (!mapped && value == 0)
             {
                 return idText;
             }
 
             string valueText = null;
-            if (mapped && eventNameMap != null)
+            if (mapped)
             {
-                eventNameMap.TryGetValue(value, out valueText);
+                valueText = GetMappedName(eventNameMap, value);
             }
 
             if (valueText == null)
@@ -317,6 +402,25 @@ namespace Datacute.IncrementalGeneratorExtensions
             }
 
             return idText.Length == 0 ? valueText : $"{idText} ({valueText})";
+        }
+
+        private static string GetMappedName(Dictionary<int, string> eventNameMap, int id)
+        {
+            string idText = null;
+            if (eventNameMap != null)
+            {
+                eventNameMap.TryGetValue(id, out idText);
+            }
+            if (idText == null && _customEventNames != null)
+            {
+                _customEventNames.TryGetValue(id, out idText);
+            }
+            if (idText == null)
+            {
+                _dynamicValueNames.TryGetValue(id, out idText);
+            }
+
+            return idText;
         }
 
         /// <summary>
