@@ -3,7 +3,7 @@
 ---
 # LightweightTrace.cs and LightweightTraceExtensions.cs
 LightweightTrace is a zero‑allocation instrumentation layer for incremental source generators: a timestamped ring buffer of events plus composite-key counters (id + optional value + mapping flag) that represent histograms, categorical buckets, and method-call frequencies.
-It can emit a single embedded diagnostics comment (counters + trace) into generated source so you can understand pipeline behavior (frequency, timing patterns, entry/exit flow) without external tooling. LightweightTraceExtensions wires this into IncrementalValue/Values providers and adds cancellation logging helpers.
+It can emit a single embedded diagnostics comment (counters + trace) into generated source so you can understand pipeline behaviour (frequency, timing patterns, entry/exit flow) without external tooling. LightweightTraceExtensions wires this into IncrementalValue/Values providers and adds cancellation logging helpers.
 ## Sample Diagnostics Output
 ```text
 /* Diagnostics
@@ -78,7 +78,7 @@ Trace Log:
 LightweightTrace.IncrementCount(GeneratorStage.ForAttributeWithMetadataNamePredicate);
 LightweightTrace.Add(GeneratorStage.ForAttributeWithMetadataNamePipelineOutput);
 
-// EquatableImmutableArray instance cache size histogram bucket
+// Instance cache size metrics for a generic type
 LightweightTrace.IncrementCount(GeneratorStage.EquatableImmutableArrayInstanceCacheSize, typeMapId, true);
 
 // Method call mapping (shows up as Method Call (...))
@@ -104,7 +104,7 @@ When diagnostics text is rendered, name lookup uses this precedence:
 2. The shared custom map set once with `LightweightTrace.SetCustomEventNames(...)`.
 3. Runtime registrations created via `LightweightTrace.RegisterName(...)`.
 
-This allows a mixed model where stable pipeline/event names are supplied up front, while runtime-discovered mapped values (for example, generic type names used by cache metrics) are registered dynamically.
+This allows a mixed model where stable pipeline/event names are supplied up front, while runtime-discovered names, such as generic type names used by instance-cache metrics, are registered dynamically.
 
 Example setup:
 ```csharp
