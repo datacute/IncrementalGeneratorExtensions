@@ -232,6 +232,26 @@ namespace Datacute.IncrementalGeneratorExtensions
             => DecrementCount(System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref counterId), value, mapValue);
 
         /// <summary>
+        /// Sets the value of a given key.
+        /// </summary>
+        /// <param name="counterId">The ID of the counter to set.</param>
+        /// <param name="count">The new value for the counter.</param>
+        /// <typeparam name="TEnum">The type of the counter ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
+        public static void SetCount<TEnum>(TEnum counterId, long count) where TEnum : Enum
+            => SetCount(System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref counterId), count);
+
+        /// <summary>
+        /// Sets the value of a given key.
+        /// </summary>
+        /// <param name="counterId">The ID of the counter to set.</param>
+        /// <param name="value">The value associated with the counter, which can be used for additional context or categorization.</param>
+        /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
+        /// <param name="count">The new value for the counter.</param>
+        /// <typeparam name="TEnum">The type of the counter ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
+        public static void SetCount<TEnum>(TEnum counterId, int value, bool mapValue, long count) where TEnum : Enum
+            => SetCount(System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref counterId), value, mapValue, count);
+
+        /// <summary>
         /// Increments the value of a given key by 1.
         /// </summary>
         /// <param name="counterId">The ID of the counter to increment.</param>
@@ -259,6 +279,22 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
         public static void DecrementCount(int counterId, int value, bool mapValue = false) => Interlocked.Decrement(ref GetOrAddCounter(EncodeKey(counterId, value, mapValue)).Value);
 
+        /// <summary>
+        /// Sets the value of a given key.
+        /// </summary>
+        /// <param name="counterId">The ID of the counter to set.</param>
+        /// <param name="count">The new value for the counter.</param>
+        public static void SetCount(int counterId, long count) => Interlocked.Exchange(ref GetOrAddCounter(counterId).Value, count);
+
+        /// <summary>
+        /// Sets the value of a given key.
+        /// </summary>
+        /// <param name="counterId">The ID of the counter to set.</param>
+        /// <param name="value">The value associated with the counter.</param>
+        /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
+        /// <param name="count">The new value for the counter.</param>
+        public static void SetCount(int counterId, int value, bool mapValue, long count) => Interlocked.Exchange(ref GetOrAddCounter(EncodeKey(counterId, value, mapValue)).Value, count);
+        
         /// <summary>
         /// Gets a string with the current cache performance metrics.
         /// It intelligently separates simple counters from histogram data based on key prefixes.
