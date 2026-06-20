@@ -2,8 +2,12 @@
 
 ---
 # LightweightTrace.cs and LightweightTraceExtensions.cs
-LightweightTrace is a zero‑allocation instrumentation layer for incremental source generators: a timestamped ring buffer of events plus composite-key counters (id + optional value + mapping flag) that represent histograms, categorical buckets, and method-call frequencies.
-It can emit a single embedded diagnostics comment (counters + trace) into generated source so you can understand pipeline behaviour (frequency, timing patterns, entry/exit flow) without external tooling. LightweightTraceExtensions wires this into IncrementalValue/Values providers and adds cancellation logging helpers.
+LightweightTrace is a zero‑allocation instrumentation layer for incremental source generators supporting two complementary modes:
+
+- **Standard mode** (default): Ring-buffer timestamped events + composite-key counters for embedded diagnostics
+- **EventSource mode** (cross-platform): Direct integration with .NET diagnostic events (ETW on Windows; diagnostic tools on Linux/macOS)
+
+Both modes share the same public API and output formats. You get a timestamped event trace, composite-key counters (id + optional value + mapping flag) for histograms and categorical buckets, automatic method-call frequency counting, and unified AppendDiagnosticsComment output embeddable in generated code. EventSource mode optionally streams events to real-time diagnostic listeners. LightweightTraceExtensions wires this into IncrementalValue/Values providers and adds cancellation logging helpers.
 ## Sample Diagnostics Output
 ```text
 /* Diagnostics
@@ -203,6 +207,59 @@ The files will still appear in the project, but will not add anything to the com
 ### Note: Dependency
 `LightweightTraceExtensions.cs` depends on `LightweightTrace.cs` and will **not work** when it
 is excluded. (Unless you supply your own implementation of `LightweightTrace`.)
+
+## EventSource Mode (Cross-Platform Diagnostic Events)
+
+By default, LightweightTrace uses a ring-buffer implementation. You can optionally enable EventSource-based diagnostic event tracing by defining `DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE`:
+
+```XML
+<PropertyGroup>
+  <DefineConstants>$(DefineConstants);DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE</DefineConstants>
+</PropertyGroup>
+```
+
+### Benefits
+- **Integrates with platform diagnostic systems**: ETW on Windows, diagnostic listeners on Linux/macOS
+- **Lower latency**: Events are streamed to listeners in real time (when listeners are active)
+- **Same API**: Both modes share identical public methods; swap modes without code changes
+- **No divergence**: Single implementation prevents drift between modes
+- **Zero overhead when disabled**: No encode/decode cycles when EventSource is inactive
+
+### Usage
+When using EventSource mode, initialize tracing once at startup before any trace calls:
+
+```csharp
+// Initialize once at startup
+LightweightTrace.InitializeEtw(
+    eventSourceName: "MyGenerator-Trace",
+    eventLevel: EventLevel.Informational,
+    eventNameMap: MyGeneratorStageDescriptions.EventNameMap
+);
+
+// Use normally; events flow to both ring-buffer and active listeners
+LightweightTrace.Add(GeneratorStage.Processing);
+LightweightTrace.IncrementCount(GeneratorStage.ItemsProcessed, itemCount);
+```
+
+### Event Levels
+When using EventSource mode, you can control verbosity per event type:
+
+- **Critical**: Fatal errors requiring immediate attention
+- **Error**: Error conditions that may affect functionality
+- **Warning**: Potentially problematic conditions
+- **Informational** (default): General informational messages
+- **Verbose**: Detailed tracing for deep investigation
+
+Example: enable only warnings and above:
+```csharp
+LightweightTrace.InitializeEtw(eventLevel: EventLevel.Warning);
+```
+
+### Embedding Diagnostics vs. Real-Time Events
+- **Standard mode**: All tracing goes into the ring-buffer; call `AppendDiagnosticsComment()` to embed in generated source
+- **EventSource mode**: Events flow to both the ring-buffer (for embedding) and active diagnostic listeners simultaneously
+
+This means EventSource mode is ideal for **live profiling during development** while keeping the option to embed diagnostics for investigation in running code. When no listeners are active, EventSource calls are gated by `IsEnabled()` checks, minimizing overhead.
 
 ---
 <small>
