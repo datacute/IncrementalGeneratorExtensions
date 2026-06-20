@@ -59,7 +59,7 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <summary>
         /// Runtime-registered names keyed by allocated IDs.
         /// </summary>
-        private static readonly ConcurrentDictionary<int, string> _dynamicValueNames = new ConcurrentDictionary<int, string>();
+        private static ConcurrentDictionary<int, string> _dynamicValueNames;
 
         /// <summary>
         /// Backing counter for dynamically registered names.
@@ -93,7 +93,15 @@ namespace Datacute.IncrementalGeneratorExtensions
         public static int RegisterName(string name)
         {
             var id = Interlocked.Increment(ref _nextId);
-            _dynamicValueNames[id] = name;
+            var dynamicValueNames = _dynamicValueNames;
+            if (dynamicValueNames == null)
+            {
+                dynamicValueNames = new ConcurrentDictionary<int, string>();
+                Interlocked.CompareExchange(ref _dynamicValueNames, dynamicValueNames, null);
+                dynamicValueNames = _dynamicValueNames;
+            }
+
+            dynamicValueNames[id] = name;
             return id;
         }
 
@@ -415,7 +423,7 @@ namespace Datacute.IncrementalGeneratorExtensions
             {
                 _customEventNames.TryGetValue(id, out idText);
             }
-            if (idText == null)
+            if (idText == null && _dynamicValueNames != null)
             {
                 _dynamicValueNames.TryGetValue(id, out idText);
             }
