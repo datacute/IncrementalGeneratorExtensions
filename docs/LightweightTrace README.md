@@ -190,24 +190,6 @@ Guidelines:
 5. When mapping enum values (mapValue: true) ensure those enum members also have numeric values < CompositeValueShift so they fit the id naming space of the map.
 6. Avoid redefining an existing numeric ID with a new meaning once shipped; allocate a new ID instead.
  
-# Excluding the source files
-
-To disable the inclusion of a specific source file,
-define the relevant constant in the consuming project's `.csproj` file:
-
-```XML
-<PropertyGroup>
-  <DefineConstants>$(DefineConstants);DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE</DefineConstants>
-  <DefineConstants>$(DefineConstants);DATACUTE_EXCLUDE_LIGHTWEIGHTTRACEEXTENSIONS</DefineConstants>
-</PropertyGroup>
-```
-
-The files will still appear in the project, but will not add anything to the compilation.
-
-### Note: Dependency
-`LightweightTraceExtensions.cs` depends on `LightweightTrace.cs` and will **not work** when it
-is excluded. (Unless you supply your own implementation of `LightweightTrace`.)
-
 ## EventSource Mode (Cross-Platform Diagnostic Events)
 
 By default, LightweightTrace uses a ring-buffer implementation. You can optionally enable EventSource-based diagnostic event tracing by defining `DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE`:
@@ -260,6 +242,24 @@ LightweightTrace.InitializeEtw(eventLevel: EventLevel.Warning);
 - **EventSource mode**: Events flow to both the ring-buffer (for embedding) and active diagnostic listeners simultaneously
 
 This means EventSource mode is ideal for **live profiling during development** while keeping the option to embed diagnostics for investigation in running code. When no listeners are active, EventSource calls are gated by `IsEnabled()` checks, minimizing overhead.
+
+# Excluding the source files
+
+To disable the inclusion of a specific source file,
+define the relevant constant in the consuming project's `.csproj` file:
+
+```XML
+<PropertyGroup>
+  <DefineConstants>$(DefineConstants);DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE</DefineConstants>
+  <DefineConstants>$(DefineConstants);DATACUTE_EXCLUDE_LIGHTWEIGHTTRACEEXTENSIONS</DefineConstants>
+</PropertyGroup>
+```
+
+The files will still appear in the project, but will not add anything to the compilation.
+
+### Note: Dependency
+`LightweightTraceExtensions.cs` depends on `LightweightTrace.cs` and will **not work** when it
+is excluded. (Unless you supply your own implementation of `LightweightTrace`.)
 
 ---
 <small>
