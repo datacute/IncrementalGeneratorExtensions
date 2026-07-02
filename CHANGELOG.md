@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Optional `LightweightTrace` EventSource mode behind `DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE` for cross-platform diagnostic event streaming (ETW on Windows and EventPipe-compatible tooling on Linux/macOS).
+
 ### Changed
 
 - Instance cache size metrics are now tracked per generic type.

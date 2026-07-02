@@ -3,6 +3,9 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+#if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
+using System.Diagnostics.Tracing;
+#endif
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -47,6 +50,10 @@ namespace Datacute.IncrementalGeneratorExtensions
         private static readonly (long, int)[] Events = new (long, int)[Capacity];
         private static int _index;
 
+#if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
+        private static LightweightTraceEventSource _etwLog;
+        private static EventLevel _etwLevel = EventLevel.Informational;
+#endif
         /// <summary>
         /// Custom names supplied by the caller for event IDs and mapped values.
         /// </summary>
@@ -105,13 +112,117 @@ namespace Datacute.IncrementalGeneratorExtensions
             return id;
         }
 
+#if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
+        /// <summary>
+        /// Initializes ETW logging with a custom event source name and event level.
+        /// </summary>
+        /// <param name="eventSourceName">The name of the ETW event source.</param>
+        /// <param name="eventLevel">The event level for the traces.</param>
+        /// <param name="eventNameMap">A dictionary mapping event IDs and values to their names, used to turn raw numeric event IDs and values into meaningful ETW output.</param>
+        public static void InitializeEtw(string eventSourceName = "Datacute-IncrementalGenerator-Trace", EventLevel eventLevel = EventLevel.Informational, Dictionary<int, string> eventNameMap = null)
+        {
+            if (_etwLog == null || _etwLog.Name != eventSourceName)
+            {
+                try
+                {
+                    _etwLog?.Dispose();
+                    _etwLog = new LightweightTraceEventSource(eventSourceName);
+                }
+                catch (ArgumentException)
+                {
+                    _etwLog = null;
+                }
+            }
+
+            _etwLevel = eventLevel;
+            if (eventNameMap != null)
+            {
+                SetCustomEventNames(eventNameMap);
+            }
+        }
+
+        private sealed class LightweightTraceEventSource : EventSource
+        {
+            public LightweightTraceEventSource(string eventSourceName) : base(eventSourceName)
+            {
+            }
+
+            [Event(1, Level = EventLevel.Critical)]
+            private void TraceCritical(int id, int value, bool isMappedValue, string message) => WriteEvent(1, id, value, isMappedValue, message);
+
+            [Event(2, Level = EventLevel.Error)]
+            private void TraceError(int id, int value, bool isMappedValue, string message) => WriteEvent(2, id, value, isMappedValue, message);
+
+            [Event(3, Level = EventLevel.Warning)]
+            private void TraceWarning(int id, int value, bool isMappedValue, string message) => WriteEvent(3, id, value, isMappedValue, message);
+
+            [Event(4, Level = EventLevel.Informational)]
+            private void TraceInformational(int id, int value, bool isMappedValue, string message) => WriteEvent(4, id, value, isMappedValue, message);
+
+            [Event(5, Level = EventLevel.Verbose)]
+            private void TraceVerbose(int id, int value, bool isMappedValue, string message) => WriteEvent(5, id, value, isMappedValue, message);
+
+            [Event(6, Level = EventLevel.Critical)]
+            private void CountCritical(int id, int value, bool isMappedValue, long count, string message) => WriteEvent(6, id, value, isMappedValue, count, message);
+
+            [Event(7, Level = EventLevel.Error)]
+            private void CountError(int id, int value, bool isMappedValue, long count, string message) => WriteEvent(7, id, value, isMappedValue, count, message);
+
+            [Event(8, Level = EventLevel.Warning)]
+            private void CountWarning(int id, int value, bool isMappedValue, long count, string message) => WriteEvent(8, id, value, isMappedValue, count, message);
+
+            [Event(9, Level = EventLevel.Informational)]
+            private void CountInformational(int id, int value, bool isMappedValue, long count, string message) => WriteEvent(9, id, value, isMappedValue, count, message);
+
+            [Event(10, Level = EventLevel.Verbose)]
+            private void CountVerbose(int id, int value, bool isMappedValue, long count, string message) => WriteEvent(10, id, value, isMappedValue, count, message);
+
+            [NonEvent]
+            public void Trace(EventLevel level, int id, int value, bool isMappedValue, string message)
+            {
+                if (IsEnabled(level, EventKeywords.None))
+                {
+                    switch (level)
+                    {
+                        case EventLevel.Critical: TraceCritical(id, value, isMappedValue, message); break;
+                        case EventLevel.Error: TraceError(id, value, isMappedValue, message); break;
+                        case EventLevel.Warning: TraceWarning(id, value, isMappedValue, message); break;
+                        case EventLevel.Informational: TraceInformational(id, value, isMappedValue, message); break;
+                        case EventLevel.Verbose: TraceVerbose(id, value, isMappedValue, message); break;
+                        default: TraceInformational(id, value, isMappedValue, message); break;
+                    }
+                }
+            }
+
+            [NonEvent]
+            public void Count(EventLevel level, int id, int value, bool isMappedValue, long count, string message)
+            {
+                if (IsEnabled(level, EventKeywords.None))
+                {
+                    switch (level)
+                    {
+                        case EventLevel.Critical: CountCritical(id, value, isMappedValue, count, message); break;
+                        case EventLevel.Error: CountError(id, value, isMappedValue, count, message); break;
+                        case EventLevel.Warning: CountWarning(id, value, isMappedValue, count, message); break;
+                        case EventLevel.Informational: CountInformational(id, value, isMappedValue, count, message); break;
+                        case EventLevel.Verbose: CountVerbose(id, value, isMappedValue, count, message); break;
+                        default: CountInformational(id, value, isMappedValue, count, message); break;
+                    }
+                }
+            }
+        }
+#endif
+
         /// <summary>
         /// Adds an event to the trace log with the specified event ID.
         /// </summary>
         /// <param name="eventId">The ID of the event to log.</param>
         /// <typeparam name="TEnum">The type of the event ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
         public static void Add<TEnum>(TEnum eventId) where TEnum : Enum
-            => Add(System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref eventId));
+            => AddInternal(
+                eventId: System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref eventId), 
+                value: 0, 
+                mapValue: false);
 
         /// <summary>
         /// Adds an event to the trace log with the specified event ID and numeric value.
@@ -120,7 +231,10 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <param name="value">The value associated with the event, which can be used for additional context or categorisation.</param>
         /// <typeparam name="TEnum">The type of the event ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
         public static void Add<TEnum>(TEnum eventId, int value) where TEnum : Enum
-            => Add(System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref eventId), value);
+            => AddInternal(
+                eventId: System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref eventId), 
+                value: value, 
+                mapValue: false);
 
         /// <summary>
         /// Adds an event to the trace log with the specified event ID and enum value.
@@ -132,7 +246,10 @@ namespace Datacute.IncrementalGeneratorExtensions
         public static void Add<TEnumKey, TEnumValue>(TEnumKey eventId, TEnumValue value)
             where TEnumKey : Enum
             where TEnumValue : Enum
-            => Add(System.Runtime.CompilerServices.Unsafe.As<TEnumKey, int>(ref eventId), System.Runtime.CompilerServices.Unsafe.As<TEnumValue, int>(ref value), true);
+            => AddInternal(
+                eventId: System.Runtime.CompilerServices.Unsafe.As<TEnumKey, int>(ref eventId), 
+                value: System.Runtime.CompilerServices.Unsafe.As<TEnumValue, int>(ref value), 
+                mapValue: true);
 
         /// <summary>
         /// Adds an event to the trace log with the specified numeric event ID and value.
@@ -140,7 +257,8 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <param name="eventId">The ID of the event to log.</param>
         /// <param name="value">The value associated with the event, which can be used for additional context or categorisation.</param>
         /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
-        public static void Add(int eventId, int value, bool mapValue = false) => Add(EncodeKey(eventId, value, mapValue));
+        public static void Add(int eventId, int value, bool mapValue = false)
+            => AddInternal(eventId, value, mapValue);
 
         /// <summary>
         /// Adds an event to the trace log with the specified numeric event ID.
@@ -148,18 +266,7 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <param name="eventId">The ID of the event to log.</param>
         /// <param name="mapValue">If true, and the eventId encapsulates a value, the value is treated as a mapped value when generating the diagnostic log.</param>
         public static void Add(int eventId, bool mapValue = false)
-        {
-            var index = Interlocked.Increment(ref _index) % Capacity;
-            Events[index] = (Stopwatch.ElapsedTicks, eventId | (mapValue ? MapValueFlag : 0));
-#if !DATACUTE_EXCLUDE_GENERATORSTAGE
-            if ((eventId / CompositeValueShift) != (int)GeneratorStage.MethodExit)
-            {
-                IncrementCount((int)GeneratorStage.MethodCall, eventId % CompositeValueShift, true);
-            }
-#else
-            IncrementCount(eventId % CompositeValueShift);
-#endif
-        }
+            => AddInternal(eventId, 0, mapValue);
 
 #if !DATACUTE_EXCLUDE_GENERATORSTAGE
         /// <summary>
@@ -167,14 +274,22 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// </summary>
         /// <param name="eventId">The ID of the event to log.</param>
         /// <typeparam name="TEnum">The type of the event ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
-        public static void MethodEntry<TEnum>(TEnum eventId) where TEnum : Enum => Add(System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref eventId), (int)GeneratorStage.MethodEntry, true);
+        public static void MethodEntry<TEnum>(TEnum eventId) where TEnum : Enum
+            => AddInternal(
+                eventId: System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref eventId), 
+                value: (int)GeneratorStage.MethodEntry, 
+                mapValue: true);
 
         /// <summary>
         /// Adds a method exit event to the trace log with the specified event ID.
         /// </summary>
         /// <param name="eventId">The ID of the event to log.</param>
         /// <typeparam name="TEnum">The type of the event ID, which must be an enum, either <see cref="GeneratorStage"/>, or your own.</typeparam>
-        public static void MethodExit<TEnum>(TEnum eventId) where TEnum : Enum => Add(System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref eventId), (int)GeneratorStage.MethodExit, true);
+        public static void MethodExit<TEnum>(TEnum eventId) where TEnum : Enum
+            => AddInternal(
+                eventId: System.Runtime.CompilerServices.Unsafe.As<TEnum, int>(ref eventId), 
+                value: (int)GeneratorStage.MethodExit, 
+                mapValue: true);
 #endif
 
         /// <summary>
@@ -300,7 +415,16 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <param name="counterId">The ID of the counter to increment.</param>
         /// <param name="value">The value associated with the counter, which can be used for additional context or categorisation.</param>
         /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
-        public static void IncrementCount(int counterId, int value, bool mapValue = false) => Interlocked.Increment(ref GetOrAddCounter(EncodeKey(counterId, value, mapValue)).Value);
+        public static void IncrementCount(int counterId, int value, bool mapValue = false)
+        {
+            var key = EncodeKey(counterId, value, mapValue);
+            var index = Interlocked.Increment(ref _index) % Capacity;
+            Events[index] = (Stopwatch.ElapsedTicks, key);
+#if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
+            TraceEtwCount(counterId, value, mapValue, 1L);
+#endif
+            Interlocked.Increment(ref GetOrAddCounter(key).Value);
+        }
 
         /// <summary>
         /// Decrements the value of a given key by 1.
@@ -314,7 +438,16 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <param name="counterId">The ID of the counter to decrement.</param>
         /// <param name="value">The value associated with the counter, which can be used for additional context or categorisation.</param>
         /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
-        public static void DecrementCount(int counterId, int value, bool mapValue = false) => Interlocked.Decrement(ref GetOrAddCounter(EncodeKey(counterId, value, mapValue)).Value);
+        public static void DecrementCount(int counterId, int value, bool mapValue = false)
+        {
+            var key = EncodeKey(counterId, value, mapValue);
+            var index = Interlocked.Increment(ref _index) % Capacity;
+            Events[index] = (Stopwatch.ElapsedTicks, key);
+#if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
+            TraceEtwCount(counterId, value, mapValue, -1L);
+#endif
+            Interlocked.Decrement(ref GetOrAddCounter(key).Value);
+        }
 
         /// <summary>
         /// Sets the value of a given key.
@@ -330,7 +463,16 @@ namespace Datacute.IncrementalGeneratorExtensions
         /// <param name="value">The value associated with the counter.</param>
         /// <param name="mapValue">If true, the value is treated as a mapped value when generating the diagnostic log.</param>
         /// <param name="count">The new value for the counter.</param>
-        public static void SetCount(int counterId, int value, bool mapValue, long count) => Interlocked.Exchange(ref GetOrAddCounter(EncodeKey(counterId, value, mapValue)).Value, count);
+        public static void SetCount(int counterId, int value, bool mapValue, long count)
+        {
+            var key = EncodeKey(counterId, value, mapValue);
+            var index = Interlocked.Increment(ref _index) % Capacity;
+            Events[index] = (Stopwatch.ElapsedTicks, key);
+#if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
+            TraceEtwCount(counterId, value, mapValue, count);
+#endif
+            Interlocked.Exchange(ref GetOrAddCounter(key).Value, count);
+        }
         
         /// <summary>
         /// Gets a string with the current cache performance metrics.
@@ -383,10 +525,50 @@ namespace Datacute.IncrementalGeneratorExtensions
             value = (key & ValueMask) >> ValueShift;
         }
 
+        private static void AddInternal(int eventId, int value, bool mapValue)
+        {
+            var key = EncodeKey(eventId, value, mapValue);
+            var index = Interlocked.Increment(ref _index) % Capacity;
+            Events[index] = (Stopwatch.ElapsedTicks, key);
+#if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
+            TraceEtw(eventId, value, mapValue);
+#endif
+            AddInternal(key);
+        }
+
+        private static void AddInternal(int key)
+        {
+            Interlocked.Increment(ref GetOrAddCounter(key).Value);
+        }
+
+#if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
+        private static void TraceEtw(int eventId, int value, bool mapValue)
+        {
+            if (_etwLog != null && _etwLog.IsEnabled())
+            {
+                var message = FormatEventKey(eventId, value, mapValue);
+                _etwLog.Trace(_etwLevel, eventId, value, mapValue, message);
+            }
+        }
+
+        private static void TraceEtwCount(int counterId, int value, bool mapValue, long count)
+        {
+            if (_etwLog != null && _etwLog.IsEnabled())
+            {
+                var message = FormatEventKey(counterId, value, mapValue);
+                _etwLog.Count(_etwLevel, counterId, value, mapValue, count, message);
+            }
+        }
+#endif
+
         private static string FormatEventKey(Dictionary<int, string> eventNameMap, int key)
         {
             DecodeKey(key, out var id, out var value, out var mapped);
+            return FormatEventKey(id, value, mapped, eventNameMap);
+        }
 
+        private static string FormatEventKey(int id, int value, bool mapped, Dictionary<int, string> eventNameMap = null)
+        {
             string idText = GetMappedName(eventNameMap, id);
             if (idText == null)
             {
