@@ -1,9 +1,11 @@
-#if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE
+﻿#if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+#if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
 using System.Diagnostics.Tracing;
+#endif
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -48,8 +50,10 @@ namespace Datacute.IncrementalGeneratorExtensions
         private static readonly (long, int)[] Events = new (long, int)[Capacity];
         private static int _index;
 
+#if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
         private static LightweightTraceEventSource _etwLog;
         private static EventLevel _etwLevel = EventLevel.Informational;
+#endif
         /// <summary>
         /// Custom names supplied by the caller for event IDs and mapped values.
         /// </summary>
@@ -108,6 +112,7 @@ namespace Datacute.IncrementalGeneratorExtensions
             return id;
         }
 
+#if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
         /// <summary>
         /// Initializes ETW logging with a custom event source name and event level.
         /// </summary>
@@ -206,6 +211,7 @@ namespace Datacute.IncrementalGeneratorExtensions
                 }
             }
         }
+#endif
 
         /// <summary>
         /// Adds an event to the trace log with the specified event ID.
@@ -414,7 +420,9 @@ namespace Datacute.IncrementalGeneratorExtensions
             var key = EncodeKey(counterId, value, mapValue);
             var index = Interlocked.Increment(ref _index) % Capacity;
             Events[index] = (Stopwatch.ElapsedTicks, key);
+#if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
             TraceEtwCount(counterId, value, mapValue, 1L);
+#endif
             Interlocked.Increment(ref GetOrAddCounter(key).Value);
         }
 
@@ -435,7 +443,9 @@ namespace Datacute.IncrementalGeneratorExtensions
             var key = EncodeKey(counterId, value, mapValue);
             var index = Interlocked.Increment(ref _index) % Capacity;
             Events[index] = (Stopwatch.ElapsedTicks, key);
+#if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
             TraceEtwCount(counterId, value, mapValue, -1L);
+#endif
             Interlocked.Decrement(ref GetOrAddCounter(key).Value);
         }
 
@@ -458,7 +468,9 @@ namespace Datacute.IncrementalGeneratorExtensions
             var key = EncodeKey(counterId, value, mapValue);
             var index = Interlocked.Increment(ref _index) % Capacity;
             Events[index] = (Stopwatch.ElapsedTicks, key);
+#if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
             TraceEtwCount(counterId, value, mapValue, count);
+#endif
             Interlocked.Exchange(ref GetOrAddCounter(key).Value, count);
         }
         
@@ -518,7 +530,9 @@ namespace Datacute.IncrementalGeneratorExtensions
             var key = EncodeKey(eventId, value, mapValue);
             var index = Interlocked.Increment(ref _index) % Capacity;
             Events[index] = (Stopwatch.ElapsedTicks, key);
+#if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
             TraceEtw(eventId, value, mapValue);
+#endif
             AddInternal(key);
         }
 
@@ -527,6 +541,7 @@ namespace Datacute.IncrementalGeneratorExtensions
             Interlocked.Increment(ref GetOrAddCounter(key).Value);
         }
 
+#if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
         private static void TraceEtw(int eventId, int value, bool mapValue)
         {
             if (_etwLog != null && _etwLog.IsEnabled())
@@ -544,6 +559,7 @@ namespace Datacute.IncrementalGeneratorExtensions
                 _etwLog.Count(_etwLevel, counterId, value, mapValue, count, message);
             }
         }
+#endif
 
         private static string FormatEventKey(Dictionary<int, string> eventNameMap, int key)
         {
