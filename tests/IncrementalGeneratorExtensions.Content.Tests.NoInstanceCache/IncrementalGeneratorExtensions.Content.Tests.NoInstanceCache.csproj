@@ -8,7 +8,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <!-- Verify that the full content surface compiles and behaves correctly when the
          instance cache is excluded by a consuming project. -->
-    <DefineConstants>$(DefineConstants);DATACUTE_EXCLUDE_EQUATABLEIMMUTABLEARRAYINSTANCECACHE</DefineConstants>
+    <DefineConstants>$(DefineConstants);DATACUTE_EXCLUDE_EQUATABLEIMMUTABLEARRAYINSTANCECACHE;DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE</DefineConstants>
     <NoWarn>$(NoWarn);xUnit1051</NoWarn>
   </PropertyGroup>
 
@@ -33,4 +33,3 @@
   </ItemGroup>
 
 </Project>
-
