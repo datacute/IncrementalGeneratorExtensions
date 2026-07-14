@@ -119,12 +119,12 @@ namespace Datacute.IncrementalGeneratorExtensions.Tests
         }
 
         [Fact]
-        public void InitializeEtw_CanBeCalledRepeatedly_WithDifferentEventSourceNames()
+        public void InitializeEventSource_CanBeCalledRepeatedly_WithDifferentEventSourceNames()
         {
-            LightweightTrace.InitializeEtw(
+            LightweightTrace.InitializeEventSource(
                 eventSourceName: "Datacute-LWT-EventSource-Test-A-" + Guid.NewGuid().ToString("N"),
                 eventLevel: EventLevel.Verbose);
-            LightweightTrace.InitializeEtw(
+            LightweightTrace.InitializeEventSource(
                 eventSourceName: "Datacute-LWT-EventSource-Test-B-" + Guid.NewGuid().ToString("N"),
                 eventLevel: EventLevel.Informational);
         }
@@ -142,7 +142,7 @@ namespace Datacute.IncrementalGeneratorExtensions.Tests
 
             using (var listener = new CapturingEventListener(eventSourceName, EventLevel.Verbose))
             {
-                LightweightTrace.InitializeEtw(
+                LightweightTrace.InitializeEventSource(
                     eventSourceName: eventSourceName,
                     eventLevel: EventLevel.Informational,
                     eventNameMap: eventNameMap);
@@ -194,7 +194,7 @@ namespace Datacute.IncrementalGeneratorExtensions.Tests
                 { (int)TestTraceStage.StageB, "Stage B" },
             };
 
-            LightweightTrace.InitializeEtw(
+            LightweightTrace.InitializeEventSource(
                 eventSourceName: "Datacute-LWT-EventSource-Test-C-" + Guid.NewGuid().ToString("N"),
                 eventLevel: EventLevel.Verbose,
                 eventNameMap: eventNameMap);

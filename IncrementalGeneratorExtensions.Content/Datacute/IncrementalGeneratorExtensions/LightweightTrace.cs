@@ -51,8 +51,8 @@ namespace Datacute.IncrementalGeneratorExtensions
         private static int _index;
 
 #if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
-        private static LightweightTraceEventSource _etwLog;
-        private static EventLevel _etwLevel = EventLevel.Informational;
+        private static LightweightTraceEventSource _eventSource;
+        private static EventLevel _eventLevel = EventLevel.Informational;
 #endif
         /// <summary>
         /// Custom names supplied by the caller for event IDs and mapped values.
@@ -114,27 +114,27 @@ namespace Datacute.IncrementalGeneratorExtensions
 
 #if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
         /// <summary>
-        /// Initializes ETW logging with a custom event source name and event level.
+        /// Initializes EventSource logging with a custom event source name and event level.
         /// </summary>
-        /// <param name="eventSourceName">The name of the ETW event source.</param>
+        /// <param name="eventSourceName">The name of the EventSource.</param>
         /// <param name="eventLevel">The event level for the traces.</param>
-        /// <param name="eventNameMap">A dictionary mapping event IDs and values to their names, used to turn raw numeric event IDs and values into meaningful ETW output.</param>
-        public static void InitializeEtw(string eventSourceName = "Datacute-IncrementalGenerator-Trace", EventLevel eventLevel = EventLevel.Informational, Dictionary<int, string> eventNameMap = null)
+        /// <param name="eventNameMap">A dictionary mapping event IDs and values to their names, used to turn raw numeric event IDs and values into meaningful EventSource output.</param>
+        public static void InitializeEventSource(string eventSourceName = "Datacute-IncrementalGenerator-Trace", EventLevel eventLevel = EventLevel.Informational, Dictionary<int, string> eventNameMap = null)
         {
-            if (_etwLog == null || _etwLog.Name != eventSourceName)
+            if (_eventSource == null || _eventSource.Name != eventSourceName)
             {
                 try
                 {
-                    _etwLog?.Dispose();
-                    _etwLog = new LightweightTraceEventSource(eventSourceName);
+                    _eventSource?.Dispose();
+                    _eventSource = new LightweightTraceEventSource(eventSourceName);
                 }
                 catch (ArgumentException)
                 {
-                    _etwLog = null;
+                    _eventSource = null;
                 }
             }
 
-            _etwLevel = eventLevel;
+            _eventLevel = eventLevel;
             if (eventNameMap != null)
             {
                 SetCustomEventNames(eventNameMap);
@@ -544,19 +544,19 @@ namespace Datacute.IncrementalGeneratorExtensions
 #if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
         private static void TraceEtw(int eventId, int value, bool mapValue)
         {
-            if (_etwLog != null && _etwLog.IsEnabled())
+            if (_eventSource != null && _eventSource.IsEnabled())
             {
                 var message = FormatEventKey(eventId, value, mapValue);
-                _etwLog.Trace(_etwLevel, eventId, value, mapValue, message);
+                _eventSource.Trace(_eventLevel, eventId, value, mapValue, message);
             }
         }
 
         private static void TraceEtwCount(int counterId, int value, bool mapValue, long count)
         {
-            if (_etwLog != null && _etwLog.IsEnabled())
+            if (_eventSource != null && _eventSource.IsEnabled())
             {
                 var message = FormatEventKey(counterId, value, mapValue);
-                _etwLog.Count(_etwLevel, counterId, value, mapValue, count, message);
+                _eventSource.Count(_eventLevel, counterId, value, mapValue, count, message);
             }
         }
 #endif

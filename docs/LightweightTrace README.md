@@ -212,7 +212,7 @@ When using EventSource mode, initialize tracing once at startup before any trace
 
 ```csharp
 // Initialize once at startup
-LightweightTrace.InitializeEtw(
+LightweightTrace.InitializeEventSource(
     eventSourceName: "MyGenerator-Trace",
     eventLevel: EventLevel.Informational,
     eventNameMap: MyGeneratorStageDescriptions.EventNameMap
@@ -234,7 +234,7 @@ When using EventSource mode, you can control verbosity per event type:
 
 Example: enable only warnings and above:
 ```csharp
-LightweightTrace.InitializeEtw(eventLevel: EventLevel.Warning);
+LightweightTrace.InitializeEventSource(eventLevel: EventLevel.Warning);
 ```
 
 ### Embedding Diagnostics vs. Real-Time Events
