@@ -421,7 +421,7 @@ namespace Datacute.IncrementalGeneratorExtensions
             var index = Interlocked.Increment(ref _index) % Capacity;
             Events[index] = (Stopwatch.ElapsedTicks, key);
 #if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
-            TraceEtwCount(counterId, value, mapValue, 1L);
+            EventSourceCount(counterId, value, mapValue, 1L);
 #endif
             Interlocked.Increment(ref GetOrAddCounter(key).Value);
         }
@@ -444,7 +444,7 @@ namespace Datacute.IncrementalGeneratorExtensions
             var index = Interlocked.Increment(ref _index) % Capacity;
             Events[index] = (Stopwatch.ElapsedTicks, key);
 #if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
-            TraceEtwCount(counterId, value, mapValue, -1L);
+            EventSourceCount(counterId, value, mapValue, -1L);
 #endif
             Interlocked.Decrement(ref GetOrAddCounter(key).Value);
         }
@@ -469,7 +469,7 @@ namespace Datacute.IncrementalGeneratorExtensions
             var index = Interlocked.Increment(ref _index) % Capacity;
             Events[index] = (Stopwatch.ElapsedTicks, key);
 #if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
-            TraceEtwCount(counterId, value, mapValue, count);
+            EventSourceCount(counterId, value, mapValue, count);
 #endif
             Interlocked.Exchange(ref GetOrAddCounter(key).Value, count);
         }
@@ -531,7 +531,7 @@ namespace Datacute.IncrementalGeneratorExtensions
             var index = Interlocked.Increment(ref _index) % Capacity;
             Events[index] = (Stopwatch.ElapsedTicks, key);
 #if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
-            TraceEtw(eventId, value, mapValue);
+            EventSourceTrace(eventId, value, mapValue);
 #endif
             AddInternal(key);
         }
@@ -542,7 +542,7 @@ namespace Datacute.IncrementalGeneratorExtensions
         }
 
 #if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
-        private static void TraceEtw(int eventId, int value, bool mapValue)
+        private static void EventSourceTrace(int eventId, int value, bool mapValue)
         {
             if (_eventSource != null && _eventSource.IsEnabled())
             {
@@ -551,7 +551,7 @@ namespace Datacute.IncrementalGeneratorExtensions
             }
         }
 
-        private static void TraceEtwCount(int counterId, int value, bool mapValue, long count)
+        private static void EventSourceCount(int counterId, int value, bool mapValue, long count)
         {
             if (_eventSource != null && _eventSource.IsEnabled())
             {
