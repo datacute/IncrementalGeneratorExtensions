@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-22
+
 ### Added
 
 - Optional `LightweightTrace` EventSource mode behind `DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE` for cross-platform diagnostic event streaming (ETW on Windows and EventPipe-compatible tooling on Linux/macOS).
@@ -131,7 +133,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[Unreleased]: https://github.com/datacute/IncrementalGeneratorExtensions/compare/1.0.7...develop
+[Unreleased]: https://github.com/datacute/IncrementalGeneratorExtensions/compare/1.1.0...develop
+[1.1.0]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/1.1.0
 [1.0.7]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/1.0.7
 [1.0.6]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/1.0.6
 [1.0.5]: https://github.com/datacute/IncrementalGeneratorExtensions/releases/tag/1.0.5
