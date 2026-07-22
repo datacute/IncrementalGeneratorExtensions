@@ -12,6 +12,11 @@ on:
     - main
     - develop
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing release tag to process (leave empty for normal branch builds)'
+        required: false
+        type: string
     
 permissions:
   checks: write
@@ -30,11 +35,11 @@ jobs:
     steps:
     - uses: actions/checkout@v5
       with:
-        ref: ${{ github.sha }}
-        fetch-depth: 1
+        fetch-depth: 0
 
-    - name: Fetch tags
-      run: git fetch --force --tags origin
+    - name: Select release tag
+      if: inputs.release_tag != ''
+      run: git checkout --detach "tags/${{ inputs.release_tag }}"
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
