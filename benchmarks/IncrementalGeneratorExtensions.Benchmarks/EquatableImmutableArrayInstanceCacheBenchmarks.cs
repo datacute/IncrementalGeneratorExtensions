@@ -8,18 +8,18 @@ namespace Datacute.IncrementalGeneratorExtensions.Benchmarks
     /// Benchmarks for <see cref="EquatableImmutableArrayInstanceCache{T}.GetOrCreate"/>.
     /// </summary>
     /// <remarks>
-    /// Three distinct scenarios are measured:
+    /// Scenarios are closely aligned to the two-level cache structure:
     /// <list type="bullet">
     ///   <item>Empty array — returns the shared singleton immediately.</item>
-    ///   <item>Cache hit — every call returns an already-cached instance; exercises the
-    ///       lock-free lookup through length → first-element-hash → element comparison.</item>
-    ///   <item>Cache miss — a monotonically-increasing first element guarantees a new bucket
-    ///       on every call; measures allocation + insertion cost.  The cache grows continuously
-    ///       during this benchmark; GC pressure is visible in the allocation column.</item>
+    ///   <item>MRU Hit — immediately returns from the lock-free strong reference hot path.</item>
+    ///   <item>Dictionary Hit — misses the MRU (using a pool larger than MRU size) but finds the instance via dictionary lookup.</item>
+    ///   <item>Miss (Unique) — unique first element produces a new MRU slot and new dictionary bucket every call.</item>
+    ///   <item>Miss (Tail Varies) — a typical miss scenario. Same first element forces an MRU element check (fail), but a unique last element creates a new dictionary bucket.</item>
+    ///   <item>Miss (Middle Varies) — forces dictionary bucket collisions since the first/last elements are identical, exercising inline weak reference list scanning.</item>
     /// </list>
     /// </remarks>
     [MemoryDiagnoser]
-    [HideColumns("Runtime", "IterationCount", "WarmupCount")]
+    [HideColumns("Runtime")]
     [BenchmarkCategory("EquatableImmutableArrayInstanceCache")]
     [SimpleJob(RuntimeMoniker.Net481, id: "net481")]
     [SimpleJob(RuntimeMoniker.Net10_0, id: "net10")]
@@ -31,8 +31,25 @@ namespace Datacute.IncrementalGeneratorExtensions.Benchmarks
         private ImmutableArray<TypeContext> _warmShort;
         private ImmutableArray<TypeContext> _warmLong;
 
+        // Pools to guarantee MRU eviction but Dictionary hits
+        private ImmutableArray<ImmutableArray<TypeContext>> _dictPoolShort;
+        private ImmutableArray<ImmutableArray<TypeContext>> _dictPoolLong;
+        private const int PoolSize = 256;
+
         // Counter used to produce a brand-new first element on every cache-miss call.
         private int _missCounter;
+
+        private const int OpsEmpty = 25_000_000;
+        private const int OpsMruHitShort = 4_000_000;
+        private const int OpsMruHitLong = 1_500_000;
+        private const int OpsDictHitShort = 2_000_000;
+        private const int OpsDictHitLong = 1_000_000;
+        private const int OpsMissUniqueShort = 200_000;
+        private const int OpsMissUniqueLong = 65_000;
+        private const int OpsMissTailVariesShort = 100_000;
+        private const int OpsMissTailVariesLong = 55_000;
+        private const int OpsMissMiddleVariesShort = 20_000;
+        private const int OpsMissMiddleVariesLong = 2_000;
 
         [GlobalSetup]
         public void Setup()
@@ -40,11 +57,37 @@ namespace Datacute.IncrementalGeneratorExtensions.Benchmarks
             _warmShort = ImmutableArrayFactory.BuildAscending(3);
             _warmLong = ImmutableArrayFactory.BuildAscending(20);
 
+            var shortPool = ImmutableArray.CreateBuilder<ImmutableArray<TypeContext>>(PoolSize);
+            var longPool = ImmutableArray.CreateBuilder<ImmutableArray<TypeContext>>(PoolSize);
+            for (int i = 0; i < PoolSize; i++)
+            {
+                shortPool.Add(ImmutableArrayFactory.BuildShort(1000 + i, 42, 99));
+                longPool.Add(ImmutableArrayFactory.BuildWithUniqueFirstElement(20, 1000 + i));
+            }
+            _dictPoolShort = shortPool.ToImmutable();
+            _dictPoolLong = longPool.ToImmutable();
+
             // Pre-populate the cache so subsequent hits are truly warm.
             EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(_warmShort);
             EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(_warmLong);
+            foreach (var arr in _dictPoolShort) EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(arr);
+            foreach (var arr in _dictPoolLong) EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(arr);
 
             _missCounter = 1_000_000; // start well away from the warm arrays
+        }
+
+        [IterationSetup]
+        public void IterationSetup()
+        {
+            EquatableImmutableArrayInstanceCache<TypeContext>.Clear();
+            
+            // Re-populate the cache
+            EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(_warmShort);
+            EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(_warmLong);
+            foreach (var arr in _dictPoolShort) EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(arr);
+            foreach (var arr in _dictPoolLong) EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(arr);
+            
+            _missCounter = 1_000_000;
         }
 
         // ------------------------------------------------------------------ //
@@ -52,118 +95,212 @@ namespace Datacute.IncrementalGeneratorExtensions.Benchmarks
         // ------------------------------------------------------------------ //
 
         /// <summary>Returns <see cref="EquatableImmutableArray{T}.Empty"/> via the fast-path guard.</summary>
-        [Benchmark]
+        [Benchmark(OperationsPerInvoke = OpsEmpty)]
         public EquatableImmutableArray<TypeContext> GetOrCreate_Empty()
-            => EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(EmptyArray);
-
-        // ------------------------------------------------------------------ //
-        //  Cache hit                                                           //
-        // ------------------------------------------------------------------ //
-
-        /// <summary>Cache hit for a 3-element array.</summary>
-        [Benchmark]
-        public EquatableImmutableArray<TypeContext> GetOrCreate_CacheHit_Short()
-            => EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(_warmShort);
-
-        /// <summary>Cache hit for a 20-element array.</summary>
-        [Benchmark]
-        public EquatableImmutableArray<TypeContext> GetOrCreate_CacheHit_Long()
-            => EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(_warmLong);
-
-        // ------------------------------------------------------------------ //
-        //  Cache miss                                                          //
-        // ------------------------------------------------------------------ //
-
-        /// <summary>
-        /// Cache miss: a unique first element on every call means the cache will never find a
-        /// match, so a new <see cref="EquatableImmutableArray{T}"/> is allocated and inserted each time.
-        /// </summary>
-        /// <remarks>Bounded to 15 iterations to keep total run time manageable; the sweep cost
-        /// makes individual iterations expensive and highly variable.</remarks>
-        [Benchmark]
-        [WarmupCount(3), IterationCount(15)]
-        public EquatableImmutableArray<TypeContext> GetOrCreate_CacheMiss_Short()
         {
-            var arr = ImmutableArrayFactory.BuildShort(_missCounter++, 42, 99);
-            return EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(arr);
-        }
-
-        /// <summary>Cache miss for a 20-element array.</summary>
-        /// <remarks>Bounded to 15 iterations to keep total run time manageable.</remarks>
-        [Benchmark]
-        [WarmupCount(3), IterationCount(15)]
-        public EquatableImmutableArray<TypeContext> GetOrCreate_CacheMiss_Long()
-        {
-            return EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(ImmutableArrayFactory.BuildWithUniqueFirstElement(20, _missCounter++));
+            EquatableImmutableArray<TypeContext> result = null;
+            for (int i = 0; i < OpsEmpty; i++)
+            {
+                result = EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(EmptyArray);
+            }
+            return result;
         }
 
         // ------------------------------------------------------------------ //
-        //  Cache miss — tail varies (same first element, unique last element) //
-        //  All entries collide into the same candidateList bucket, so the     //
-        //  linear scan grows O(n) with each miss: demonstrates the O(n²)     //
-        //  worst case noted in the TODO comment in the implementation.        //
+        //  MRU Hit                                                             //
+        // ------------------------------------------------------------------ //
+
+        /// <summary>MRU cache hit for a 3-element array.</summary>
+        [Benchmark(OperationsPerInvoke = OpsMruHitShort)]
+        public EquatableImmutableArray<TypeContext> GetOrCreate_MruHit_Short()
+        {
+            EquatableImmutableArray<TypeContext> result = null;
+            for (int i = 0; i < OpsMruHitShort; i++)
+            {
+                result = EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(_warmShort);
+            }
+            return result;
+        }
+
+        /// <summary>MRU cache hit for a 20-element array.</summary>
+        [Benchmark(OperationsPerInvoke = OpsMruHitLong)]
+        public EquatableImmutableArray<TypeContext> GetOrCreate_MruHit_Long()
+        {
+            EquatableImmutableArray<TypeContext> result = null;
+            for (int i = 0; i < OpsMruHitLong; i++)
+            {
+                result = EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(_warmLong);
+            }
+            return result;
+        }
+
+        // ------------------------------------------------------------------ //
+        //  Dictionary Hit                                                      //
+        // ------------------------------------------------------------------ //
+
+        /// <summary>Dictionary hit (MRU miss) for 3-element arrays.</summary>
+        [Benchmark(OperationsPerInvoke = OpsDictHitShort)]
+        public EquatableImmutableArray<TypeContext> GetOrCreate_DictHit_Short()
+        {
+            EquatableImmutableArray<TypeContext> result = null;
+            for (int i = 0; i < OpsDictHitShort; i++)
+            {
+                result = EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(_dictPoolShort[i % PoolSize]);
+            }
+            return result;
+        }
+
+        /// <summary>Dictionary hit (MRU miss) for 20-element arrays.</summary>
+        [Benchmark(OperationsPerInvoke = OpsDictHitLong)]
+        public EquatableImmutableArray<TypeContext> GetOrCreate_DictHit_Long()
+        {
+            EquatableImmutableArray<TypeContext> result = null;
+            for (int i = 0; i < OpsDictHitLong; i++)
+            {
+                result = EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(_dictPoolLong[i % PoolSize]);
+            }
+            return result;
+        }
+
+        // ------------------------------------------------------------------ //
+        //  Cache Miss - Unique                                               //
         // ------------------------------------------------------------------ //
 
         /// <summary>
-        /// Cache miss for a 3-element array where only the <em>last</em> element varies.
-        /// Every array shares the same first element hash, so all entries accumulate in a
-        /// single <c>candidateList</c> bucket.  The linear scan grows O(n) with each miss,
-        /// producing O(n²) total work across the benchmark run.
+        /// Cache miss (Unique): unique first element produces a new MRU entry and new dictionary bucket every call.
         /// </summary>
-        /// <remarks>Bounded to 15 iterations to keep total run time manageable.</remarks>
-        [Benchmark]
-        [WarmupCount(3), IterationCount(15)]
-        public EquatableImmutableArray<TypeContext> GetOrCreate_CacheMiss_Short_TailVaries()
+        [Benchmark(OperationsPerInvoke = OpsMissUniqueShort)]
+        public EquatableImmutableArray<TypeContext> GetOrCreate_Miss_Unique_Short()
         {
-            var arr = ImmutableArrayFactory.BuildShort(42, 99, _missCounter++);
-            return EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(arr);
+            EquatableImmutableArray<TypeContext> result = null;
+            for (int i = 0; i < OpsMissUniqueShort; i++)
+            {
+                var arr = ImmutableArrayFactory.BuildShort(_missCounter++, 42, 99);
+                result = EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(arr);
+            }
+            return result;
         }
 
-        /// <summary>
-        /// Cache miss for a 20-element array where only the <em>last</em> element varies.
-        /// Every array shares the same first element hash, so all entries accumulate in a
-        /// single <c>candidateList</c> bucket.  The linear scan grows O(n) with each miss,
-        /// producing O(n²) total work across the benchmark run.
-        /// </summary>
-        /// <remarks>Bounded to 15 iterations to keep total run time manageable.</remarks>
-        [Benchmark]
-        [WarmupCount(3), IterationCount(15)]
-        public EquatableImmutableArray<TypeContext> GetOrCreate_CacheMiss_Long_TailVaries()
+        /// <summary>Cache miss (Unique) for a 20-element array.</summary>
+        [Benchmark(OperationsPerInvoke = OpsMissUniqueLong)]
+        public EquatableImmutableArray<TypeContext> GetOrCreate_Miss_Unique_Long()
         {
-            return EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(ImmutableArrayFactory.BuildWithUniqueLastElement(20, _missCounter++));
+            EquatableImmutableArray<TypeContext> result = null;
+            for (int i = 0; i < OpsMissUniqueLong; i++)
+            {
+                result = EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(ImmutableArrayFactory.BuildWithUniqueFirstElement(20, _missCounter++));
+            }
+            return result;
+        }
+
+        // ------------------------------------------------------------------ //
+        //  Cache Miss - Tail Varies                                          //
+        // ------------------------------------------------------------------ //
+
+        /// <summary>
+        /// Cache miss (Tail Varies): typical scenario where arrays share a prefix. MRU element
+        /// check fails, and the differing last element produces a new dictionary bucket.
+        /// </summary>
+        [Benchmark(OperationsPerInvoke = OpsMissTailVariesShort)]
+        public EquatableImmutableArray<TypeContext> GetOrCreate_Miss_TailVaries_Short()
+        {
+            EquatableImmutableArray<TypeContext> result = null;
+            for (int i = 0; i < OpsMissTailVariesShort; i++)
+            {
+                var arr = ImmutableArrayFactory.BuildShort(42, 99, _missCounter++);
+                result = EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(arr);
+            }
+            return result;
+        }
+
+        /// <summary>Cache miss (Tail Varies) for a 20-element array.</summary>
+        [Benchmark(OperationsPerInvoke = OpsMissTailVariesLong)]
+        public EquatableImmutableArray<TypeContext> GetOrCreate_Miss_TailVaries_Long()
+        {
+            EquatableImmutableArray<TypeContext> result = null;
+            for (int i = 0; i < OpsMissTailVariesLong; i++)
+            {
+                result = EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(ImmutableArrayFactory.BuildWithUniqueLastElement(20, _missCounter++));
+            }
+            return result;
+        }
+
+        // ------------------------------------------------------------------ //
+        //  Cache Miss - Middle Varies (Collisions)                           //
+        // ------------------------------------------------------------------ //
+
+        /// <summary>
+        /// Cache miss (Middle Varies): only the middle element varies, forcing entries into
+        /// the same MRU slot and the exact same Dictionary bucket (since BucketHash relies on first/last).
+        /// </summary>
+        [Benchmark(OperationsPerInvoke = OpsMissMiddleVariesShort)]
+        public EquatableImmutableArray<TypeContext> GetOrCreate_Miss_MiddleVaries_Short()
+        {
+            EquatableImmutableArray<TypeContext> result = null;
+            for (int i = 0; i < OpsMissMiddleVariesShort; i++)
+            {
+                var arr = ImmutableArrayFactory.BuildShort(42, _missCounter++, 99);
+                result = EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(arr);
+            }
+            return result;
+        }
+
+        /// <summary>Cache miss (Middle Varies) for a 20-element array.</summary>
+        [Benchmark(OperationsPerInvoke = OpsMissMiddleVariesLong)]
+        public EquatableImmutableArray<TypeContext> GetOrCreate_Miss_MiddleVaries_Long()
+        {
+            EquatableImmutableArray<TypeContext> result = null;
+            for (int i = 0; i < OpsMissMiddleVariesLong; i++)
+            {
+                result = EquatableImmutableArrayInstanceCache<TypeContext>.GetOrCreate(ImmutableArrayFactory.BuildWithUniqueMiddleElement(20, _missCounter++));
+            }
+            return result;
         }
     }
 }
 
 /*
-BenchmarkDotNet v0.15.1, Windows 11 (10.0.26200.8457)
+BenchmarkDotNet v0.15.8, Windows 11 (10.0.26200.8457/25H2/2025Update/HudsonValley2)
 12th Gen Intel Core i7-12700H 2.30GHz, 1 CPU, 20 logical and 14 physical cores
 .NET SDK 10.0.300
-  [Host] : .NET 10.0.8 (10.0.826.23019), X64 RyuJIT AVX2
-  net10  : .NET 10.0.8 (10.0.826.23019), X64 RyuJIT AVX2
+  [Host] : .NET 10.0.8 (10.0.8, 10.0.826.23019), X64 RyuJIT x86-64-v3
+  net10  : .NET 10.0.8 (10.0.8, 10.0.826.23019), X64 RyuJIT x86-64-v3
   net481 : .NET Framework 4.8.1 (4.8.9325.0), X64 RyuJIT VectorSize=256
 
-| Method                                 | Job    | Mean         | Error         | StdDev      | Gen0   | Gen1   | Allocated |
-|--------------------------------------- |------- |-------------:|--------------:|------------:|-------:|-------:|----------:|
-| GetOrCreate_CacheHit_Long              | net10  |    92.454 ns |     1.8100 ns |   1.7777 ns |      - |      - |         - |
-| GetOrCreate_CacheHit_Long              | net481 |   189.911 ns |     3.2094 ns |   2.8450 ns |      - |      - |         - |
-| GetOrCreate_CacheHit_Short             | net10  |    30.901 ns |     0.4236 ns |   0.3962 ns |      - |      - |         - |
-| GetOrCreate_CacheHit_Short             | net481 |    64.527 ns |     1.0955 ns |   1.0248 ns |      - |      - |         - |
-| GetOrCreate_CacheMiss_Long             | net10  | 3,191.616 ns |   371.6088 ns | 329.4216 ns | 0.1488 | 0.0381 |    1888 B |
-| GetOrCreate_CacheMiss_Long             | net481 | 4,554.047 ns |   215.4445 ns | 190.9859 ns | 0.3967 | 0.0839 |    2519 B |
-| GetOrCreate_CacheMiss_Long_TailVaries  | net10  | 3,185.128 ns |   174.1148 ns | 154.3482 ns | 0.1488 | 0.0381 |    1888 B |
-| GetOrCreate_CacheMiss_Long_TailVaries  | net481 | 4,193.878 ns |   195.8028 ns | 173.5741 ns | 0.5035 | 0.1373 |    3452 B |
-| GetOrCreate_CacheMiss_Short            | net10  | 2,362.822 ns |   255.4965 ns | 226.4910 ns | 0.0420 | 0.0210 |     527 B |
-| GetOrCreate_CacheMiss_Short            | net481 | 3,178.519 ns | 1,010.2600 ns | 944.9979 ns | 0.1030 | 0.0267 |     650 B |
-| GetOrCreate_CacheMiss_Short_TailVaries | net10  | 2,342.099 ns |   305.2144 ns | 270.5646 ns | 0.0420 | 0.0210 |     528 B |
-| GetOrCreate_CacheMiss_Short_TailVaries | net481 | 3,298.285 ns |   386.7766 ns | 301.9697 ns | 0.1030 | 0.0324 |     658 B |
-| GetOrCreate_Empty                      | net10  |     4.594 ns |     0.1335 ns |   0.1428 ns |      - |      - |         - |
-| GetOrCreate_Empty                      | net481 |    12.106 ns |     0.1091 ns |   0.0967 ns |      - |      - |         - |
+InvocationCount=1  UnrollFactor=1
+
+| Method                              | Job    | Mean           | Error         | StdDev        | Median         | Gen0   | Gen1   | Gen2   | Allocated |
+|------------------------------------ |------- |---------------:|--------------:|--------------:|---------------:|-------:|-------:|-------:|----------:|
+| GetOrCreate_DictHit_Long            | net10  |     122.453 ns |     2.2861 ns |     4.2939 ns |     121.798 ns |      - |      - |      - |         - |
+| GetOrCreate_DictHit_Long            | net481 |     231.800 ns |     4.1890 ns |     3.9183 ns |     231.807 ns |      - |      - |      - |         - |
+| GetOrCreate_DictHit_Short           | net10  |      63.520 ns |     1.2611 ns |     2.7415 ns |      63.050 ns |      - |      - |      - |         - |
+| GetOrCreate_DictHit_Short           | net481 |     102.215 ns |     2.0068 ns |     2.2306 ns |     102.851 ns |      - |      - |      - |         - |
+| GetOrCreate_Empty                   | net10  |       3.977 ns |     0.0466 ns |     0.0436 ns |       3.977 ns |      - |      - |      - |         - |
+| GetOrCreate_Empty                   | net481 |      12.998 ns |     0.0794 ns |     0.0704 ns |      12.974 ns |      - |      - |      - |         - |
+| GetOrCreate_Miss_MiddleVaries_Long  | net10  |  64,299.202 ns | 1,456.5561 ns | 4,294.6888 ns |  63,710.525 ns |      - |      - |      - |    1776 B |
+| GetOrCreate_Miss_MiddleVaries_Long  | net481 | 122,452.693 ns | 1,883.7521 ns | 1,762.0629 ns | 121,959.350 ns |      - |      - |      - |    2396 B |
+| GetOrCreate_Miss_MiddleVaries_Short | net10  | 120,740.832 ns | 2,365.9418 ns | 2,992.1591 ns | 120,325.005 ns |      - |      - |      - |     466 B |
+| GetOrCreate_Miss_MiddleVaries_Short | net481 | 111,712.478 ns | 2,134.4820 ns | 2,283.8718 ns | 111,125.402 ns | 0.0500 |      - |      - |     526 B |
+| GetOrCreate_Miss_TailVaries_Long    | net10  |   1,783.799 ns |    35.2943 ns |    93.5955 ns |   1,770.565 ns | 0.1455 | 0.0364 |      - |    1993 B |
+| GetOrCreate_Miss_TailVaries_Long    | net481 |   3,254.096 ns |    64.0123 ns |   137.7932 ns |   3,195.556 ns | 0.4182 | 0.1091 | 0.0364 |    2613 B |
+| GetOrCreate_Miss_TailVaries_Short   | net10  |     892.240 ns |    17.0059 ns |    33.9626 ns |     883.653 ns | 0.0400 | 0.0200 |      - |     623 B |
+| GetOrCreate_Miss_TailVaries_Short   | net481 |   1,437.001 ns |    32.7436 ns |    96.0314 ns |   1,410.052 ns | 0.1100 | 0.0400 | 0.0200 |     704 B |
+| GetOrCreate_Miss_Unique_Long        | net10  |   1,779.124 ns |    34.7808 ns |    65.3267 ns |   1,762.583 ns | 0.1538 | 0.0462 |      - |    1974 B |
+| GetOrCreate_Miss_Unique_Long        | net481 |   3,085.658 ns |    58.6840 ns |    65.2271 ns |   3,071.978 ns | 0.4308 | 0.1077 | 0.0462 |    2604 B |
+| GetOrCreate_Miss_Unique_Short       | net10  |   1,291.066 ns |    25.5915 ns |    58.8006 ns |   1,290.112 ns | 0.0500 | 0.0250 | 0.0050 |     633 B |
+| GetOrCreate_Miss_Unique_Short       | net481 |   1,769.416 ns |    34.1502 ns |    45.5896 ns |   1,769.187 ns | 0.1150 | 0.0400 | 0.0150 |     711 B |
+| GetOrCreate_MruHit_Long             | net10  |      90.103 ns |     1.7478 ns |     2.2727 ns |      89.641 ns |      - |      - |      - |         - |
+| GetOrCreate_MruHit_Long             | net481 |     194.187 ns |     3.6635 ns |     3.5981 ns |     193.643 ns |      - |      - |      - |         - |
+| GetOrCreate_MruHit_Short            | net10  |      30.476 ns |     0.5442 ns |     0.5091 ns |      30.232 ns |      - |      - |      - |         - |
+| GetOrCreate_MruHit_Short            | net481 |      63.255 ns |     1.2377 ns |     2.0679 ns |      63.529 ns |      - |      - |      - |         - |
 
 // * Warnings *
 MultimodalDistribution
-  EquatableImmutableArrayInstanceCacheBenchmarks.GetOrCreate_CacheMiss_Long: net10  -> It seems that the distribution is bimodal (mValue = 3.25)
-  EquatableImmutableArrayInstanceCacheBenchmarks.GetOrCreate_CacheMiss_Short: net10 -> It seems that the distribution is bimodal (mValue = 3.33)
-
+  EquatableImmutableArrayInstanceCacheBenchmarks.GetOrCreate_Miss_TailVaries_Long: net10 -> It seems that the distribution is bimodal (mValue = 3.67)
+  EquatableImmutableArrayInstanceCacheBenchmarks.GetOrCreate_Miss_Unique_Short: net10    -> It seems that the distribution is bimodal (mValue = 3.37)
+MinIterationTime
+  EquatableImmutableArrayInstanceCacheBenchmarks.GetOrCreate_Empty: net10                 -> The minimum observed iteration time is 97.671ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  EquatableImmutableArrayInstanceCacheBenchmarks.GetOrCreate_Miss_TailVaries_Long: net10  -> The minimum observed iteration time is 90.708ms which is very small. It's recommended to increase it to at least 100ms using more operations.
+  EquatableImmutableArrayInstanceCacheBenchmarks.GetOrCreate_Miss_TailVaries_Short: net10 -> The minimum observed iteration time is 83.901ms which is very small. It's recommended to increase it to at least 100ms using more operations.
 
 */

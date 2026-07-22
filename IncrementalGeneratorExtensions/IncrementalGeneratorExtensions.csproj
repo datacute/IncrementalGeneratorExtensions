@@ -46,6 +46,18 @@
                           LogicalName="Datacute.IncrementalGeneratorExtensions.%(Filename)%(Extension)" />
     </ItemGroup>
 
+    <PropertyGroup>
+        <!-- The DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE flag is designed for use by a consuming project -->
+        <!-- of the IncrementalGenerator, to control whether to include the EventSource tracing source code. -->
+        <!-- It is set here only to make it easier to maintain the source code. -->
+        <!-- Since multiple projects in this solution link to the same individual files, -->
+        <!-- this constnat needs to be defined in each of the projects -->
+        <!-- so that it doesn't matter which project the IDE checks for the constant -->
+        <!-- The files are included in the generator project even if this is not set anywhere. -->
+        <!-- The consuming project will need to define this constant if they want to use EventSource tracing. -->
+        <DefineConstants>$(DefineConstants);DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE</DefineConstants>
+    </PropertyGroup>
+
     <!-- Packaging -->
     <ItemGroup>
         <!-- Pack the generator dll in the analyzers/dotnet/cs path -->

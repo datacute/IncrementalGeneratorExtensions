@@ -1,4 +1,4 @@
-﻿#if !DATACUTE_EXCLUDE_EQUATABLEIMMUTABLEARRAYINSTANCECACHE // Feature: EquatableImmutableArrayInstanceCache (optional)
+#if !DATACUTE_EXCLUDE_EQUATABLEIMMUTABLEARRAYINSTANCECACHE // Feature: EquatableImmutableArrayInstanceCache (optional)
 #if !DATACUTE_EXCLUDE_EQUATABLEIMMUTABLEARRAY // Dependency: EquatableImmutableArray
 using System;
 using System.Collections.Concurrent;
@@ -13,6 +13,46 @@ namespace Datacute.IncrementalGeneratorExtensions
     // is important.
     // We will use an instance cache to find when we can reuse
     // an existing object, massively speeding up the Equals call.
+
+    /// <summary>
+    /// A registry that keeps track of all generic instances of <see cref="EquatableImmutableArrayInstanceCache{T}"/>
+    /// so that their caches can be cleared in a single operation.
+    /// </summary>
+    public static class EquatableImmutableArrayInstanceCacheRegistry
+    {
+        private static Action _clearActions;
+        // ReSharper disable once ChangeFieldTypeToSystemThreadingLock shared source code needs to work in netStandard 2.0
+        private static readonly object SyncRoot = new object();
+
+        /// <summary>
+        /// Registers a cache clearer action for a specific generic instance.
+        /// </summary>
+        /// <param name="clearAction">The action that clears the cache for a specific type.</param>
+        public static void RegisterClearAction(Action clearAction)
+        {
+            lock (SyncRoot)
+            {
+                if (clearAction != null)
+                {
+                    _clearActions += clearAction;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Clears all registered instance caches.
+        /// </summary>
+        public static void ClearAll()
+        {
+            Action actions;
+            lock (SyncRoot)
+            {
+                actions = _clearActions;
+            }
+            
+            actions?.Invoke();
+        }
+    }
 
     /// <summary>
     /// A cache for instances of <see cref="EquatableImmutableArray{T}"/>.
@@ -54,6 +94,8 @@ namespace Datacute.IncrementalGeneratorExtensions
             Cache = new ConcurrentDictionary<int, ConcurrentDictionary<int, List<WeakReference<EquatableImmutableArray<T>>>>>();
             LengthDictFactory = _ => new ConcurrentDictionary<int, List<WeakReference<EquatableImmutableArray<T>>>>();
             CandidateListFactory = _ => new List<WeakReference<EquatableImmutableArray<T>>>();
+            
+            EquatableImmutableArrayInstanceCacheRegistry.RegisterClearAction(Clear);
         }
 
         private struct SweepTarget
@@ -67,14 +109,46 @@ namespace Datacute.IncrementalGeneratorExtensions
         // to avoid enumerating ConcurrentDictionary (which boxes on .NET Framework).
         private const int SweepRingSize = 1024;
         private static readonly SweepTarget[] SweepRing = new SweepTarget[SweepRingSize];
-        // ReSharper disable StaticMemberInGenericType the index belongs to the SweepRing
+        // ReSharper disable once StaticMemberInGenericType the index belongs to the SweepRing
         // and is intended to be one per type.
         private static int _sweepRingIndex;
-        // ReSharper restore StaticMemberInGenericType
 
         // Number of buckets inspected during a post-miss sweep.  Large enough to make a
         // meaningful dent in stale entries without adding noticeable cost to the miss path.
         private const int SweepBatchSize = 16;
+
+        /// <summary>
+        /// Clears the cache, removing all stored instances.
+        /// </summary>
+        public static void Clear()
+        {
+            Array.Clear(MruLengths, 0, MruSize);
+            Array.Clear(MruFirstHashes, 0, MruSize);
+            Array.Clear(MruInstances, 0, MruSize);
+            Cache.Clear();
+            Array.Clear(SweepRing, 0, SweepRingSize);
+            
+#if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE && !DATACUTE_EXCLUDE_GENERATORSTAGE
+            SetCount(GeneratorStage.EquatableImmutableArrayInstanceCacheSize, 0L);
+#endif
+        }
+
+#if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE && !DATACUTE_EXCLUDE_GENERATORSTAGE
+        private static readonly int TypeMapId = LightweightTrace.RegisterName(typeof(T).ToString());
+
+        private static void SetCount<TEnum>(TEnum counterId, long count) where TEnum : Enum
+        {
+            LightweightTrace.SetCount(counterId, TypeMapId, mapValue: true, count);
+        }
+        private static void IncrementCount<TEnum>(TEnum counterId) where TEnum : Enum
+        {
+            LightweightTrace.IncrementCount(counterId, TypeMapId, mapValue: true);
+        }
+        private static void DecrementCount<TEnum>(TEnum counterId) where TEnum : Enum
+        {
+            LightweightTrace.DecrementCount(counterId, TypeMapId, mapValue: true);
+        }
+#endif
 
         /// <summary>
         /// Gets or creates an instance of <see cref="EquatableImmutableArray{T}"/> from the provided values.
@@ -130,7 +204,7 @@ namespace Datacute.IncrementalGeneratorExtensions
                     if (match)
                     {
 #if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE && !DATACUTE_EXCLUDE_GENERATORSTAGE
-                        LightweightTrace.IncrementCount(GeneratorStage.EquatableImmutableArrayCacheHit, values.Length);
+                        IncrementCount(GeneratorStage.EquatableImmutableArrayCacheHit);
 #endif
                         return mruCandidate;
                     }
@@ -194,7 +268,7 @@ namespace Datacute.IncrementalGeneratorExtensions
                         {
                             result = existing;
 #if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE && !DATACUTE_EXCLUDE_GENERATORSTAGE
-                            LightweightTrace.IncrementCount(GeneratorStage.EquatableImmutableArrayCacheHit, values.Length);
+                            IncrementCount(GeneratorStage.EquatableImmutableArrayCacheHit);
 #endif
                             break;
                         }
@@ -203,8 +277,8 @@ namespace Datacute.IncrementalGeneratorExtensions
                     {
                         // Clean up dead references
 #if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE && !DATACUTE_EXCLUDE_GENERATORSTAGE
-                        LightweightTrace.IncrementCount(GeneratorStage.EquatableImmutableArrayCacheWeakReferenceRemoved, values.Length);
-                        LightweightTrace.DecrementCount(GeneratorStage.EquatableImmutableArrayLength, values.Length);
+                        IncrementCount(GeneratorStage.EquatableImmutableArrayCacheWeakReferenceRemoved);
+                        DecrementCount(GeneratorStage.EquatableImmutableArrayInstanceCacheSize);
 #endif
                         candidateList.RemoveAt(i);
                     }
@@ -215,9 +289,9 @@ namespace Datacute.IncrementalGeneratorExtensions
                     // No match found; calculate hash and create new instance
                     var hash = EquatableImmutableArray<T>.CalculateHashCode(values, comparer, firstElementHash, 1);
 #if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE && !DATACUTE_EXCLUDE_GENERATORSTAGE
-                    // Record a histogram of the array sizes we are being asked to create
-                    LightweightTrace.IncrementCount(GeneratorStage.EquatableImmutableArrayCacheMiss, values.Length);
-                    LightweightTrace.IncrementCount(GeneratorStage.EquatableImmutableArrayLength, values.Length);
+                    // Record a miss and track the number of cached instances for this type
+                    IncrementCount(GeneratorStage.EquatableImmutableArrayCacheMiss);
+                    IncrementCount(GeneratorStage.EquatableImmutableArrayInstanceCacheSize);
 #endif
                     result = new EquatableImmutableArray<T>(values, hash);
                     candidateList.Add(new WeakReference<EquatableImmutableArray<T>>(result));
@@ -272,7 +346,13 @@ namespace Datacute.IncrementalGeneratorExtensions
                     for (int j = list.Count - 1; j >= 0; j--)
                     {
                         if (!list[j].TryGetTarget(out _))
+                        {
+#if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE && !DATACUTE_EXCLUDE_GENERATORSTAGE
+                            IncrementCount(GeneratorStage.EquatableImmutableArrayCacheWeakReferenceRemoved);
+                            DecrementCount(GeneratorStage.EquatableImmutableArrayInstanceCacheSize);
+#endif
                             list.RemoveAt(j);
+                        }
                     }
                     isEmpty = list.Count == 0;
                 }

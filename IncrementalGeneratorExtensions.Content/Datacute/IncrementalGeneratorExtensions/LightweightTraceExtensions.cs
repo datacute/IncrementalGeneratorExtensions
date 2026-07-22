@@ -1,6 +1,9 @@
 ﻿#if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACEEXTENSIONS // Feature: LightweightTraceExtensions
 #if !DATACUTE_EXCLUDE_LIGHTWEIGHTTRACE // Dependency: LightweightTrace
 using System;
+#if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
+using System.Diagnostics.Tracing;
+#endif
 using System.Threading;
 using Microsoft.CodeAnalysis;
 
@@ -182,6 +185,124 @@ namespace Datacute.IncrementalGeneratorExtensions
 
                 return input;
             }).WithTrackingName(Enum.GetName(typeof(TEnumKey), eventId) ?? $"({eventId})");
+
+#if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
+        /// <summary>
+        /// Captures EventSource configuration and registers conditional EventSource publication.
+        /// </summary>
+        /// <param name="context">The <see cref="IncrementalGeneratorInitializationContext"/>.</param>
+        /// <param name="buildPropertyName">The MSBuild property name (e.g., "DatacuteGeneratorUseEventSource"). The property is read from build_property.{buildPropertyName}.</param>
+        /// <param name="eventSourceName">Optional EventSource name. Defaults to "Datacute-IncrementalGenerator-Trace".</param>
+        /// <param name="eventLevel">Optional event level. Defaults to <see cref="EventLevel.Informational"/>.</param>
+        /// <param name="eventNameMap">Optional mapping of event IDs to names for diagnostic output.</param>
+        /// <returns>The context to allow method chaining.</returns>
+        /// <remarks>
+        /// Captures configuration immediately. When the MSBuild property is "true", publication is enabled;
+        /// otherwise publication is disabled. The conditional action runs during source generation.
+        /// </remarks>
+        /// <example>
+        /// In your generator's Initialize method:
+        /// <code>
+        /// context.InitializeEventSourceIfEnabled("DatacuteGeneratorUseEventSource");
+        /// // or with custom parameters:
+        /// context.InitializeEventSourceIfEnabled(
+        ///     buildPropertyName: "DatacuteGeneratorUseEventSource",
+        ///     eventSourceName: "MyGenerator-Trace",
+        ///     eventNameMap: eventNameMap);
+        /// </code>
+        /// 
+        /// In the consuming project's .csproj file to enable tracing:
+        /// <code>
+        /// &lt;PropertyGroup&gt;
+        ///   &lt;DatacuteGeneratorUseEventSource&gt;true&lt;/DatacuteGeneratorUseEventSource&gt;
+        /// &lt;/PropertyGroup&gt;
+        /// </code>
+        /// </example>
+        public static IncrementalGeneratorInitializationContext InitializeEventSourceIfEnabled(
+            this IncrementalGeneratorInitializationContext context,
+            string buildPropertyName,
+            string eventSourceName = LightweightTrace.DefaultEventSourceName,
+            EventLevel eventLevel = LightweightTrace.DefaultEventSourceLevel,
+            System.Collections.Generic.Dictionary<int, string> eventNameMap = null)
+        {
+            LightweightTrace.InitializeEventSource(eventSourceName, eventLevel, eventNameMap);
+
+            var eventSourceEnabledValueProvider = context.AnalyzerConfigOptionsProvider
+                .Select((provider, _) => provider.GlobalOptions)
+                .Select((globalOptions, _) =>
+                {
+                    globalOptions.TryGetValue($"build_property.{buildPropertyName}", out var value);
+                    return bool.TryParse(value, out var result) && result;
+                });
+
+            context.RegisterSourceOutput(eventSourceEnabledValueProvider, (_, isEnabled) =>
+            {
+                if (isEnabled)
+                {
+                    TryEnableEventSource();
+                }
+                else
+                {
+                    LightweightTrace.DisableEventSource();
+                }
+            });
+
+            return context;
+        }
+
+        /// <summary>
+        /// Captures unconditional EventSource configuration.
+        /// </summary>
+        /// <param name="context">The <see cref="IncrementalGeneratorInitializationContext"/>.</param>
+        /// <param name="eventSourceName">Optional EventSource name. Defaults to "Datacute-IncrementalGenerator-Trace".</param>
+        /// <param name="eventLevel">Optional event level. Defaults to <see cref="EventLevel.Informational"/>.</param>
+        /// <param name="eventNameMap">Optional mapping of event IDs to names for diagnostic output.</param>
+        /// <param name="enableEventSource">Whether to enable EventSource publication after capturing configuration. Defaults to true.</param>
+        /// <returns>The context to allow method chaining.</returns>
+        /// <remarks>
+        /// Calls <see cref="LightweightTrace.InitializeEventSource(string, EventLevel, System.Collections.Generic.Dictionary{int, string})"/>
+        /// with the specified parameters immediately, then enables EventSource publication unless <paramref name="enableEventSource"/> is false.
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// context.InitializeEventSource();
+        /// // or with custom parameters:
+        /// context.InitializeEventSource(
+        ///     eventSourceName: "MyGenerator-Trace",
+        ///     eventNameMap: eventNameMap);
+        /// </code>
+        /// </example>
+        public static IncrementalGeneratorInitializationContext InitializeEventSource(
+            this IncrementalGeneratorInitializationContext context,
+            string eventSourceName = LightweightTrace.DefaultEventSourceName,
+            EventLevel eventLevel = LightweightTrace.DefaultEventSourceLevel,
+            System.Collections.Generic.Dictionary<int, string> eventNameMap = null,
+            bool enableEventSource = true)
+        {
+            LightweightTrace.InitializeEventSource(eventSourceName, eventLevel, eventNameMap);
+            if (enableEventSource)
+            {
+                TryEnableEventSource();
+            }
+
+            return context;
+        }
+
+        private static void TryEnableEventSource()
+        {
+            try
+            {
+                LightweightTrace.EnableEventSource();
+            }
+            catch
+            {
+                // EventSource creation may fail or be unavailable; silently ignore.
+#if !DATACUTE_EXCLUDE_GENERATORSTAGE
+                LightweightTrace.Add(GeneratorStage.MethodException);
+#endif
+            }
+        }
+#endif
 
 #if !DATACUTE_EXCLUDE_GENERATORSTAGE
         /// <summary>

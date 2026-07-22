@@ -6,6 +6,7 @@
     <IsPackable>false</IsPackable>
     <LangVersion>latestMajor</LangVersion>
     <ImplicitUsings>disable</ImplicitUsings>
+    <DefineConstants>$(DefineConstants);DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE</DefineConstants>
     <!-- xUnit1051 wants TestContext.Current.CancellationToken passed to every CT-accepting method.
          Noise for in-memory factory helpers; suppressed project-wide. -->
     <NoWarn>$(NoWarn);xUnit1051</NoWarn>
@@ -13,7 +14,7 @@
 
   <ItemGroup>
     <PackageReference Include="xunit.v3" Version="3.2.2" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.6.0" PrivateAssets="all" />
   </ItemGroup>
 
   <!-- Include the sample source files as part of this test assembly so tests exercise the same code shipped as content -->
@@ -22,5 +23,17 @@
       <Link>Content\%(Filename)%(Extension)</Link>
     </Compile>
   </ItemGroup>
+
+  <PropertyGroup>
+    <!-- The DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE flag is designed for use by a consuming project -->
+    <!-- of the IncrementalGenerator, to control whether to include the EventSource tracing source code. -->
+    <!-- It is set here only to make it easier to maintain the source code. -->
+    <!-- Since multiple projects in this solution link to the same individual files, -->
+    <!-- this constnat needs to be defined in each of the projects -->
+    <!-- so that it doesn't matter which project the IDE checks for the constant -->
+    <!-- The files are included in the generator project even if this is not set anywhere. -->
+    <!-- The consuming project will need to define this constant if they want to use EventSource tracing. -->
+    <DefineConstants>$(DefineConstants);DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE</DefineConstants>
+  </PropertyGroup>
 
 </Project>

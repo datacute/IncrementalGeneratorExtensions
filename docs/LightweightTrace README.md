@@ -2,8 +2,12 @@
 
 ---
 # LightweightTrace.cs and LightweightTraceExtensions.cs
-LightweightTrace is a zero‑allocation instrumentation layer for incremental source generators: a timestamped ring buffer of events plus composite-key counters (id + optional value + mapping flag) that represent histograms, categorical buckets, and method-call frequencies.
-It can emit a single embedded diagnostics comment (counters + trace) into generated source so you can understand pipeline behavior (frequency, timing patterns, entry/exit flow) without external tooling. LightweightTraceExtensions wires this into IncrementalValue/Values providers and adds cancellation logging helpers.
+LightweightTrace is a zero‑allocation instrumentation layer for incremental source generators supporting two complementary modes:
+
+- **Standard mode** (default): Ring-buffer timestamped events + composite-key counters for embedded diagnostics
+- **EventSource mode** (cross-platform): Direct integration with .NET diagnostic events (ETW on Windows; diagnostic tools on Linux/macOS)
+
+Both modes share the same public API and output formats. You get a timestamped event trace, composite-key counters (id + optional value + mapping flag) for histograms and categorical buckets, automatic method-call frequency counting, and unified AppendDiagnosticsComment output embeddable in generated code. EventSource mode optionally streams events to real-time diagnostic listeners. LightweightTraceExtensions wires this into IncrementalValue/Values providers and adds cancellation logging helpers.
 ## Sample Diagnostics Output
 ```text
 /* Diagnostics
@@ -78,8 +82,8 @@ Trace Log:
 LightweightTrace.IncrementCount(GeneratorStage.ForAttributeWithMetadataNamePredicate);
 LightweightTrace.Add(GeneratorStage.ForAttributeWithMetadataNamePipelineOutput);
 
-// EquatableImmutableArray Length histogram bucket
-LightweightTrace.IncrementCount(GeneratorStage.EquatableImmutableArrayLength, values.Length);
+// Instance cache size metrics for a generic type
+LightweightTrace.IncrementCount(GeneratorStage.EquatableImmutableArrayInstanceCacheSize, typeMapId, true);
 
 // Method call mapping (shows up as Method Call (...))
 LightweightTrace.Add(GeneratorStage.RegisterSourceOutput);
@@ -94,14 +98,30 @@ LightweightTrace.MethodExit(GeneratorStage.Initialize);
 - Counters (simple, histogram buckets, mapped enum categories).
 - Time-stamped rolling trace (ring buffer) with method entry/exit tagging.
 - Automatic method call counting (except MethodExit) for frequency insight.
-- Name mapping for ids and (optionally flagged) values via built-in GeneratorStage / GeneratorStageDescriptions plus your own merged enum map.
+- Name mapping for ids and mapped values from three sources: per-call map, shared custom map, and runtime-registered names.
 - AppendDiagnosticsComment combines counters + trace into one embeddable block.
 - Cancellation helpers record where cancellation was observed.
+
+## Name Mapping Sources
+When diagnostics text is rendered, name lookup uses this precedence:
+1. The map passed into `AppendCounts`, `AppendTrace`, or `AppendDiagnosticsComment`.
+2. The shared custom map set once with `LightweightTrace.SetCustomEventNames(...)`.
+3. Runtime registrations created via `LightweightTrace.RegisterName(...)`.
+
+This allows a mixed model where stable pipeline/event names are supplied up front, while runtime-discovered names, such as generic type names used by instance-cache metrics, are registered dynamically.
+
+Example setup:
+```csharp
+LightweightTrace.SetCustomEventNames(GeneratorStageDescriptions.GeneratorStageNameMap);
+
+var typeMapId = LightweightTrace.RegisterName(typeof(MyType).ToString());
+LightweightTrace.IncrementCount(GeneratorStage.EquatableImmutableArrayInstanceCacheSize, typeMapId, mapValue: true);
+```
 ## Encoding (Brief)
 Composite key: composite = id + (value * CompositeValueShift) + (mapped ? MapValueFlag : 0). Decode splits into id, value, mapped flag. This keeps storage dense and lookups cheap.
 
 ## Extending GeneratorStage With Your Own Events
-You get a built-in baseline enum (GeneratorStage) and a name map (GeneratorStageDescriptions.GeneratorStageNameMap). Extend by defining your own enum with distinct numeric values (gaps are fine) and merge its names into a lazy dictionary so both built-in and custom events share one lookup.
+You get a built-in baseline enum (`GeneratorStage`) and a name map (`GeneratorStageDescriptions.GeneratorStageNameMap`). Extend by defining your own enum with distinct numeric values (gaps are fine) and merge its names into a dictionary so both built-in and custom events share one lookup.
 
 Example enum (abbreviated, made-up stages):
 ```csharp
@@ -146,7 +166,7 @@ LightweightTrace.IncrementCount(GeneratorStage.MethodCall,
     (int)MyPipelineStage.OutputComposed, mapValue: true);                      // categorical mapping
 buffer.AppendDiagnosticsComment(MyPipelineStageDescriptions.EventNameMap);    // merged names
 ```
-Result: diagnostics output shows both core GeneratorStage events and your custom stages with readable names.
+Result: diagnostics output shows both core `GeneratorStage` events and your custom stages with readable names.
 
 ## Recommended Numeric ID Ranges
 CompositeValueShift = 1024, so valid base event/counter IDs (the id portion) are 0–1023.
@@ -170,6 +190,93 @@ Guidelines:
 5. When mapping enum values (mapValue: true) ensure those enum members also have numeric values < CompositeValueShift so they fit the id naming space of the map.
 6. Avoid redefining an existing numeric ID with a new meaning once shipped; allocate a new ID instead.
  
+## EventSource Mode (Cross-Platform Diagnostic Events)
+
+LightweightTrace always records events in its ring buffer and maintains counters. Defining `DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE` adds optional EventSource publication for real-time diagnostic listeners; it does not replace the ring buffer.
+
+```XML
+<PropertyGroup>
+  <DefineConstants>$(DefineConstants);DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE</DefineConstants>
+</PropertyGroup>
+```
+
+### Benefits
+- **Platform diagnostic integration**: ETW on Windows and diagnostic tools on Linux/macOS
+- **Low latency**: Events are streamed to active listeners in real time
+- **Additive publication**: Ring-buffer events and counters remain available for embedded diagnostics
+- **Near-zero overhead when inactive**: EventSource writes are gated when publication or listeners are inactive
+
+### Default Generator Setup
+Add `InitializeEventSource(...)` near the start of `IIncrementalGenerator.Initialize` to enable real-time EventSource publication. This is the usual setup.
+
+```csharp
+public void Initialize(IncrementalGeneratorInitializationContext context)
+{
+    context.InitializeEventSource(
+        eventSourceName: "MyGenerator-Trace",
+        eventLevel: EventLevel.Informational,
+        eventNameMap: MyGeneratorStageDescriptions.EventNameMap);
+
+    // Register the rest of the generator pipeline.
+}
+```
+
+The extension captures the EventSource name, level, and optional name map, then enables publication by default.
+
+### Build Property Opt-In
+Use `InitializeEventSourceIfEnabled(...)` when consumers should control publication with an MSBuild property.
+
+```csharp
+public void Initialize(IncrementalGeneratorInitializationContext context)
+{
+    context.InitializeEventSourceIfEnabled(
+        buildPropertyName: "DatacuteGeneratorUseEventSource",
+        eventSourceName: "MyGenerator-Trace",
+        eventLevel: EventLevel.Informational,
+        eventNameMap: MyGeneratorStageDescriptions.EventNameMap);
+}
+```
+
+Then in the consuming project's .csproj:
+
+```xml
+<PropertyGroup>
+  <DatacuteGeneratorUseEventSource>true</DatacuteGeneratorUseEventSource>
+</PropertyGroup>
+```
+
+This method captures the same configuration immediately and registers an additional incremental pipeline. When that pipeline runs, the build properties are read: a `true` property value enables publication; a missing or other value disables it. Events generated before the pipeline runs remain ring-buffer-only. Future pipeline executions can change publication as the property changes.
+
+### Event Levels
+`eventLevel` sets the EventSource level used for all published LightweightTrace trace and counter events. The default is `EventLevel.Informational`.
+
+```csharp
+using System.Diagnostics.Tracing;
+
+context.InitializeEventSource(eventLevel: EventLevel.Warning);
+```
+
+### Always Available
+Ring-buffer tracing and counters are always active, regardless of EventSource configuration or publication state. `AppendDiagnosticsComment()` continues to include them in generated source. When enabled, EventSource publication is additional; it does not replace the ring buffer. When no listener is active, EventSource writes are gated by `IsEnabled()`.
+
+### Advanced Control
+`LightweightTrace.InitializeEventSource(...)` is the lower-level configuration API. It stores the EventSource name, level, and optional name map without creating or enabling an EventSource.
+
+```csharp
+LightweightTrace.InitializeEventSource(
+    eventSourceName: "MyGenerator-Trace",
+    eventLevel: EventLevel.Warning,
+    eventNameMap: MyGeneratorStageDescriptions.EventNameMap);
+
+LightweightTrace.EnableEventSource();
+// Subsequent events can be published.
+
+LightweightTrace.DisableEventSource();
+// Ring-buffer tracing and counters continue.
+```
+
+The extension overload accepts `enableEventSource: false` for the same configuration-only behavior. Reconfiguring with a different EventSource name disables and disposes the current source; call `EnableEventSource()` again to create the newly configured source. If EventSource setup fails, the generator continues and records `GeneratorStage.MethodException` in the ring buffer when generator stages are included.
+
 # Excluding the source files
 
 To disable the inclusion of a specific source file,
