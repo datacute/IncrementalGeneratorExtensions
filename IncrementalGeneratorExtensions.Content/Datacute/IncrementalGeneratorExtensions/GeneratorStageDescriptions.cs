@@ -68,6 +68,7 @@ namespace Datacute.IncrementalGeneratorExtensions
             { (int)GeneratorStage.MethodCall, "Method Call" },
             { (int)GeneratorStage.MethodEntry, "Method Entry" },
             { (int)GeneratorStage.MethodExit, "Method Exit" },
+            { (int)GeneratorStage.MethodException, "Method Exception" },
         };
     }
 }

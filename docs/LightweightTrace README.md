@@ -192,7 +192,7 @@ Guidelines:
  
 ## EventSource Mode (Cross-Platform Diagnostic Events)
 
-By default, LightweightTrace uses a ring-buffer implementation. You can optionally enable EventSource-based diagnostic event tracing by defining `DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE`:
+LightweightTrace always records events in its ring buffer and maintains counters. Defining `DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE` adds optional EventSource publication for real-time diagnostic listeners; it does not replace the ring buffer.
 
 ```XML
 <PropertyGroup>
@@ -201,47 +201,81 @@ By default, LightweightTrace uses a ring-buffer implementation. You can optional
 ```
 
 ### Benefits
-- **Integrates with platform diagnostic systems**: ETW on Windows, diagnostic listeners on Linux/macOS
-- **Lower latency**: Events are streamed to listeners in real time (when listeners are active)
-- **Same API**: Both modes share identical public methods; swap modes without code changes
-- **No divergence**: Single implementation prevents drift between modes
-- **Zero overhead when disabled**: No encode/decode cycles when EventSource is inactive
+- **Platform diagnostic integration**: ETW on Windows and diagnostic tools on Linux/macOS
+- **Low latency**: Events are streamed to active listeners in real time
+- **Additive publication**: Ring-buffer events and counters remain available for embedded diagnostics
+- **Near-zero overhead when inactive**: EventSource writes are gated when publication or listeners are inactive
 
-### Usage
-When using EventSource mode, initialize tracing once at startup before any trace calls:
+### Default Generator Setup
+Add `InitializeEventSource(...)` near the start of `IIncrementalGenerator.Initialize` to enable real-time EventSource publication. This is the usual setup.
 
 ```csharp
-// Initialize once at startup
-LightweightTrace.InitializeEventSource(
-    eventSourceName: "MyGenerator-Trace",
-    eventLevel: EventLevel.Informational,
-    eventNameMap: MyGeneratorStageDescriptions.EventNameMap
-);
+public void Initialize(IncrementalGeneratorInitializationContext context)
+{
+    context.InitializeEventSource(
+        eventSourceName: "MyGenerator-Trace",
+        eventLevel: EventLevel.Informational,
+        eventNameMap: MyGeneratorStageDescriptions.EventNameMap);
 
-// Use normally; events flow to both ring-buffer and active listeners
-LightweightTrace.Add(GeneratorStage.Processing);
-LightweightTrace.IncrementCount(GeneratorStage.ItemsProcessed, itemCount);
+    // Register the rest of the generator pipeline.
+}
 ```
+
+The extension captures the EventSource name, level, and optional name map, then enables publication by default.
+
+### Build Property Opt-In
+Use `InitializeEventSourceIfEnabled(...)` when consumers should control publication with an MSBuild property.
+
+```csharp
+public void Initialize(IncrementalGeneratorInitializationContext context)
+{
+    context.InitializeEventSourceIfEnabled(
+        buildPropertyName: "DatacuteGeneratorUseEventSource",
+        eventSourceName: "MyGenerator-Trace",
+        eventLevel: EventLevel.Informational,
+        eventNameMap: MyGeneratorStageDescriptions.EventNameMap);
+}
+```
+
+Then in the consuming project's .csproj:
+
+```xml
+<PropertyGroup>
+  <DatacuteGeneratorUseEventSource>true</DatacuteGeneratorUseEventSource>
+</PropertyGroup>
+```
+
+This method captures the same configuration immediately and registers an additional incremental pipeline. When that pipeline runs, the build properties are read: a `true` property value enables publication; a missing or other value disables it. Events generated before the pipeline runs remain ring-buffer-only. Future pipeline executions can change publication as the property changes.
 
 ### Event Levels
-When using EventSource mode, you can control verbosity per event type:
+`eventLevel` sets the EventSource level used for all published LightweightTrace trace and counter events. The default is `EventLevel.Informational`.
 
-- **Critical**: Fatal errors requiring immediate attention
-- **Error**: Error conditions that may affect functionality
-- **Warning**: Potentially problematic conditions
-- **Informational** (default): General informational messages
-- **Verbose**: Detailed tracing for deep investigation
-
-Example: enable only warnings and above:
 ```csharp
-LightweightTrace.InitializeEventSource(eventLevel: EventLevel.Warning);
+using System.Diagnostics.Tracing;
+
+context.InitializeEventSource(eventLevel: EventLevel.Warning);
 ```
 
-### Embedding Diagnostics vs. Real-Time Events
-- **Standard mode**: All tracing goes into the ring-buffer; call `AppendDiagnosticsComment()` to embed in generated source
-- **EventSource mode**: Events flow to both the ring-buffer (for embedding) and active diagnostic listeners simultaneously
+### Always Available
+Ring-buffer tracing and counters are always active, regardless of EventSource configuration or publication state. `AppendDiagnosticsComment()` continues to include them in generated source. When enabled, EventSource publication is additional; it does not replace the ring buffer. When no listener is active, EventSource writes are gated by `IsEnabled()`.
 
-This means EventSource mode is ideal for **live profiling during development** while keeping the option to embed diagnostics for investigation in running code. When no listeners are active, EventSource calls are gated by `IsEnabled()` checks, minimizing overhead.
+### Advanced Control
+`LightweightTrace.InitializeEventSource(...)` is the lower-level configuration API. It stores the EventSource name, level, and optional name map without creating or enabling an EventSource.
+
+```csharp
+LightweightTrace.InitializeEventSource(
+    eventSourceName: "MyGenerator-Trace",
+    eventLevel: EventLevel.Warning,
+    eventNameMap: MyGeneratorStageDescriptions.EventNameMap);
+
+LightweightTrace.EnableEventSource();
+// Subsequent events can be published.
+
+LightweightTrace.DisableEventSource();
+// Ring-buffer tracing and counters continue.
+```
+
+The extension overload accepts `enableEventSource: false` for the same configuration-only behavior. Reconfiguring with a different EventSource name disables and disposes the current source; call `EnableEventSource()` again to create the newly configured source. If EventSource setup fails, the generator continues and records `GeneratorStage.MethodException` in the ring buffer when generator stages are included.
 
 # Excluding the source files
 

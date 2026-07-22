@@ -21,6 +21,18 @@ namespace Datacute.IncrementalGeneratorExtensions
     {
         private const int Capacity = 1024;
 
+#if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
+        /// <summary>
+        /// The default name used when creating the LightweightTrace EventSource.
+        /// </summary>
+        public const string DefaultEventSourceName = "Datacute-IncrementalGenerator-Trace";
+
+        /// <summary>
+        /// The default level used for LightweightTrace EventSource events.
+        /// </summary>
+        public const EventLevel DefaultEventSourceLevel = EventLevel.Informational;
+#endif
+
         /// <summary>
         /// Size of the contiguous ID range (also the multiplier for packing values):
         /// compositeKey = id + (value * CompositeValueShift) (+ MapValueFlag).
@@ -52,7 +64,9 @@ namespace Datacute.IncrementalGeneratorExtensions
 
 #if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
         private static LightweightTraceEventSource _eventSource;
-        private static EventLevel _eventLevel = EventLevel.Informational;
+        private static string _eventSourceName = DefaultEventSourceName;
+        private static EventLevel _eventLevel = DefaultEventSourceLevel;
+        private static bool _eventSourceEnabled;
 #endif
         /// <summary>
         /// Custom names supplied by the caller for event IDs and mapped values.
@@ -114,31 +128,55 @@ namespace Datacute.IncrementalGeneratorExtensions
 
 #if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
         /// <summary>
-        /// Initializes EventSource logging with a custom event source name and event level.
+        /// Captures EventSource logging configuration without creating or enabling an EventSource.
         /// </summary>
         /// <param name="eventSourceName">The name of the EventSource.</param>
         /// <param name="eventLevel">The event level for the traces.</param>
         /// <param name="eventNameMap">A dictionary mapping event IDs and values to their names, used to turn raw numeric event IDs and values into meaningful EventSource output.</param>
-        public static void InitializeEventSource(string eventSourceName = "Datacute-IncrementalGenerator-Trace", EventLevel eventLevel = EventLevel.Informational, Dictionary<int, string> eventNameMap = null)
+        public static void InitializeEventSource(string eventSourceName = DefaultEventSourceName, EventLevel eventLevel = DefaultEventSourceLevel, Dictionary<int, string> eventNameMap = null)
         {
-            if (_eventSource == null || _eventSource.Name != eventSourceName)
+            if (_eventSource != null && _eventSource.Name != eventSourceName)
             {
-                try
-                {
-                    _eventSource?.Dispose();
-                    _eventSource = new LightweightTraceEventSource(eventSourceName);
-                }
-                catch (ArgumentException)
-                {
-                    _eventSource = null;
-                }
+                _eventSourceEnabled = false;
+                _eventSource.Dispose();
+                _eventSource = null;
             }
 
+            _eventSourceName = eventSourceName;
             _eventLevel = eventLevel;
             if (eventNameMap != null)
             {
                 SetCustomEventNames(eventNameMap);
             }
+        }
+
+        /// <summary>
+        /// Enables EventSource publication and lazily creates the configured EventSource.
+        /// </summary>
+        public static void EnableEventSource()
+        {
+            _eventSourceEnabled = true;
+            if (_eventSource != null)
+            {
+                return;
+            }
+
+            try
+            {
+                _eventSource = new LightweightTraceEventSource(_eventSourceName);
+            }
+            catch (ArgumentException)
+            {
+                _eventSourceEnabled = false;
+            }
+        }
+
+        /// <summary>
+        /// Stops EventSource publication without affecting ring-buffer tracing or counters.
+        /// </summary>
+        public static void DisableEventSource()
+        {
+            _eventSourceEnabled = false;
         }
 
         private sealed class LightweightTraceEventSource : EventSource
@@ -544,7 +582,7 @@ namespace Datacute.IncrementalGeneratorExtensions
 #if DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE
         private static void EventSourceTrace(int eventId, int value, bool mapValue)
         {
-            if (_eventSource != null && _eventSource.IsEnabled())
+            if (_eventSourceEnabled && _eventSource != null && _eventSource.IsEnabled())
             {
                 var message = FormatEventKey(eventId, value, mapValue);
                 _eventSource.Trace(_eventLevel, eventId, value, mapValue, message);
@@ -553,7 +591,7 @@ namespace Datacute.IncrementalGeneratorExtensions
 
         private static void EventSourceCount(int counterId, int value, bool mapValue, long count)
         {
-            if (_eventSource != null && _eventSource.IsEnabled())
+            if (_eventSourceEnabled && _eventSource != null && _eventSource.IsEnabled())
             {
                 var message = FormatEventKey(counterId, value, mapValue);
                 _eventSource.Count(_eventLevel, counterId, value, mapValue, count, message);

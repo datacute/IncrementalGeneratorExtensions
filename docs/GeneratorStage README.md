@@ -33,7 +33,7 @@ buffer.AppendDiagnosticsComment(MyCustomExtendedDescriptions.EventNameMap);
 ```
 
 ### Enum Value Guidance
-Numbers less than 100 are allocated to built-in lifecycle, provider projection, optional EquatableImmutableArray cache metrics, and generic method entry/exit / call markers. 
+Numbers less than 100 are allocated to built-in lifecycle, provider projection, optional EquatableImmutableArray cache metrics, and generic method call, entry, exit, and exception markers.
 Create your own enum using values between 100 and 1023 (to fit `LightweightTrace` expectations) and merge its names into a dictionary copied from `GeneratorStageDescriptions.GeneratorStageNameMap`.
 
 ### Recommended Use

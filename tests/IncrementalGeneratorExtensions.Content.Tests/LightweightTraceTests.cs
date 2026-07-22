@@ -119,14 +119,19 @@ namespace Datacute.IncrementalGeneratorExtensions.Tests
         }
 
         [Fact]
-        public void InitializeEventSource_CanBeCalledRepeatedly_WithDifferentEventSourceNames()
+        public void InitializeEventSource_DoesNotCreateOrPublishUntilEnabled()
         {
-            LightweightTrace.InitializeEventSource(
-                eventSourceName: "Datacute-LWT-EventSource-Test-A-" + Guid.NewGuid().ToString("N"),
-                eventLevel: EventLevel.Verbose);
-            LightweightTrace.InitializeEventSource(
-                eventSourceName: "Datacute-LWT-EventSource-Test-B-" + Guid.NewGuid().ToString("N"),
-                eventLevel: EventLevel.Informational);
+            var eventSourceName = "Datacute-LWT-Configuration-Test-" + Guid.NewGuid().ToString("N");
+            using (var listener = new CapturingEventListener(eventSourceName, EventLevel.Verbose))
+            {
+                LightweightTrace.DisableEventSource();
+                LightweightTrace.InitializeEventSource(eventSourceName, EventLevel.Informational);
+                LightweightTrace.Add(TestTraceStage.StageA);
+                LightweightTrace.IncrementCount(TestTraceStage.StageB);
+
+                Assert.False(listener.WaitUntilEnabled(TimeSpan.FromMilliseconds(200)));
+                Assert.Empty(listener.Events);
+            }
         }
 
         [Fact]
@@ -146,6 +151,7 @@ namespace Datacute.IncrementalGeneratorExtensions.Tests
                     eventSourceName: eventSourceName,
                     eventLevel: EventLevel.Informational,
                     eventNameMap: eventNameMap);
+                LightweightTrace.EnableEventSource();
 
                 Assert.True(listener.WaitUntilEnabled(TimeSpan.FromSeconds(2)));
 
@@ -186,6 +192,32 @@ namespace Datacute.IncrementalGeneratorExtensions.Tests
         }
 
         [Fact]
+        public void DisableEventSource_StopsPublicationWhileDiagnosticsContinue()
+        {
+            var eventSourceName = "Datacute-LWT-Disable-Test-" + Guid.NewGuid().ToString("N");
+            using (var listener = new CapturingEventListener(eventSourceName, EventLevel.Verbose))
+            {
+                LightweightTrace.InitializeEventSource(eventSourceName, EventLevel.Informational);
+                LightweightTrace.EnableEventSource();
+                Assert.True(listener.WaitUntilEnabled(TimeSpan.FromSeconds(2)));
+
+                LightweightTrace.Add(TestTraceStage.StageA);
+                Assert.True(listener.WaitForEventCount(1, TimeSpan.FromSeconds(2)));
+
+                LightweightTrace.DisableEventSource();
+                LightweightTrace.Add(TestTraceStage.StageB);
+                LightweightTrace.IncrementCount(TestTraceStage.StageB, 2);
+                Assert.False(listener.WaitForEventCount(2, TimeSpan.FromMilliseconds(200)));
+
+                var diagnostics = new StringBuilder();
+                diagnostics.AppendDiagnosticsComment();
+                Assert.Contains(((int)TestTraceStage.StageB).ToString("000"), diagnostics.ToString());
+
+                LightweightTrace.EnableEventSource();
+            }
+        }
+
+        [Fact]
         public void EventSourceMode_AddAndCounts_StillProduceDiagnosticsComment()
         {
             var eventNameMap = new Dictionary<int, string>
@@ -198,6 +230,7 @@ namespace Datacute.IncrementalGeneratorExtensions.Tests
                 eventSourceName: "Datacute-LWT-EventSource-Test-C-" + Guid.NewGuid().ToString("N"),
                 eventLevel: EventLevel.Verbose,
                 eventNameMap: eventNameMap);
+            LightweightTrace.EnableEventSource();
 
             LightweightTrace.Add(TestTraceStage.StageA);
             LightweightTrace.Add(TestTraceStage.StageB, 3);
@@ -212,6 +245,19 @@ namespace Datacute.IncrementalGeneratorExtensions.Tests
             Assert.Contains("/* Diagnostics", diagnostics);
             Assert.Contains("Counters:", diagnostics);
             Assert.Contains("Trace Log:", diagnostics);
+        }
+
+        [Fact]
+        public void InitializeEnableAndDisableEventSource_CanBeCalledRepeatedly()
+        {
+            var eventSourceName = "Datacute-LWT-Ext-Init-" + Guid.NewGuid().ToString("N");
+
+            LightweightTrace.InitializeEventSource(eventSourceName: eventSourceName + "-1");
+            LightweightTrace.InitializeEventSource(eventSourceName: eventSourceName + "-2");
+            LightweightTrace.EnableEventSource();
+            LightweightTrace.EnableEventSource();
+            LightweightTrace.DisableEventSource();
+            LightweightTrace.DisableEventSource();
         }
     }
 }

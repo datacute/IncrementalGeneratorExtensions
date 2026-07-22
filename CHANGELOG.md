@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Optional `LightweightTrace` EventSource mode behind `DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE` for cross-platform diagnostic event streaming (ETW on Windows and EventPipe-compatible tooling on Linux/macOS).
+- Added LightweightTrace EventSource initialization methods.
 
 ### Changed
 

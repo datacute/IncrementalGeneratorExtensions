@@ -52,6 +52,7 @@ namespace Datacute.IncrementalGeneratorExtensions
         MethodCall = 50,
         MethodEntry = 51,
         MethodExit = 52,
+        MethodException = 53,
     }
 }
 #endif

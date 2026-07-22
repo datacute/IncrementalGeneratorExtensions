@@ -77,6 +77,47 @@ Composite key encoding (overview):
 - ID and optional value are packed into a single int using a stride and a flag for value-name mapping.
 - Use CompositeValueShift and MapValueFlag to understand the packing; EncodeKey/DecodeKey helpers are available.
 
+### EventSource Integration
+
+`LightweightTrace` always records trace calls in its ring buffer and maintains counters. For real-time diagnostic event streaming, define `DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE`, capture EventSource configuration early in `IIncrementalGenerator.Initialize`, then explicitly enable publication. Initialization captures the EventSource name, level, and optional name map; it does not create an EventSource or publish events.
+
+```xml
+<PropertyGroup>
+  <DefineConstants>$(DefineConstants);DATACUTE_LIGHTWEIGHTTRACE_USE_EVENTSOURCE</DefineConstants>
+</PropertyGroup>
+```
+
+**EventSource Extension Methods** (in `LightweightTraceExtensions`): The initialization methods are extensions on `IncrementalGeneratorInitializationContext` so EventSource setup is declared alongside the rest of the generator pipeline setup, and the conditional method can read the consuming project's MSBuild properties from the context.
+
+**Conditional configuration and enablement** — captures configuration immediately, then reads an MSBuild property to enable or disable publication:
+```csharp
+public void Initialize(IncrementalGeneratorInitializationContext context)
+{
+    context.InitializeEventSourceIfEnabled("DatacuteGeneratorUseEventSource");
+}
+```
+
+Then in the consuming project's `.csproj`:
+```xml
+<PropertyGroup>
+  <DatacuteGeneratorUseEventSource>true</DatacuteGeneratorUseEventSource>
+</PropertyGroup>
+```
+
+> **Note:** MSBuild properties are available through an incremental generator provider, so conditional enablement is implemented as an additional source-generator pipeline. EventSource publication can change only when that pipeline runs; events generated earlier remain in the ring buffer.
+
+**Unconditional initialization** — capture parameters and enable publication by default:
+```csharp
+context.InitializeEventSource(
+    eventSourceName: "MyGenerator-Trace",
+    eventLevel: EventLevel.Informational,
+    eventNameMap: MyEventDescriptions.EventNameMap);
+```
+
+Pass `enableEventSource: false` to `InitializeEventSource(...)` when configuration should be captured without enabling publication. Both methods return `context` for method chaining. `LightweightTrace` records trace calls and counters regardless of EventSource configuration or enablement. `EnableEventSource()` lazily creates the EventSource and publishes subsequent events to active diagnostic listeners. `DisableEventSource()` stops publication while ring-buffer tracing and counters continue. The configured `eventLevel` applies to every event emitted by `LightweightTrace`, not individual event types. Changing the configured EventSource name disables and disposes the current source; call `EnableEventSource()` again to create the new one.
+
+For detailed EventSource documentation, see the [extended docs](https://github.com/datacute/IncrementalGeneratorExtensions/blob/main/docs/LightweightTrace%20README.md).
+
 
 
 # Additional Resources
